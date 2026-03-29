@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SecureVote — MK-FHE</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+    :root{
+      --bg:#050d1a;--surface:#0a1628;--surface2:#0f1f38;
+      --border:#1a3050;--border2:#243d5e;
+      --accent:#00e5ff;--accent2:#0099bb;
+      --yes:#00ff88;--yes2:#00cc6a;
+      --no:#ff3860;--no2:#cc1f45;
+      --text:#cdd9e8;--muted:#4a6080;--faint:#243040;
+      --mono:'Share Tech Mono',monospace;
+      --sans:'Syne',sans-serif;
+    }
+    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
+
+    /* grid bg */
+    body::before{content:'';position:fixed;inset:0;
+      background-image:linear-gradient(rgba(0,229,255,.03)1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,229,255,.03)1px,transparent 1px);
+      background-size:40px 40px;pointer-events:none;z-index:0}
+    body::after{content:'';position:fixed;width:700px;height:700px;border-radius:50%;
+      background:radial-gradient(circle,rgba(0,229,255,.05)0%,transparent 70%);
+      top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
+
+    .page{position:relative;z-index:1;min-height:100vh;display:flex;
+      flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+
+    /* ── header ── */
+    .header{text-align:center;margin-bottom:40px}
+    .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
+      font-size:.68rem;letter-spacing:.15em;color:var(--accent);
+      border:1px solid rgba(0,229,255,.3);padding:5px 14px;border-radius:2px;margin-bottom:18px;
+      animation:pulseBorder 3s ease-in-out infinite}
+    @keyframes pulseBorder{0%,100%{border-color:rgba(0,229,255,.25)}50%{border-color:rgba(0,229,255,.7)}}
+    .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--yes);animation:blinkDot 1.4s infinite}
+    @keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.2}}
+    h1{font-size:clamp(1.8rem,4vw,2.9rem);font-weight:800;letter-spacing:-.02em;
+      color:#fff;line-height:1.1;margin-bottom:10px}
+    h1 span{color:var(--accent)}
+    .subtitle{font-family:var(--mono);font-size:.72rem;color:var(--muted);
+      letter-spacing:.04em;max-width:400px;margin:0 auto;line-height:1.8}
+
+    /* ── card ── */
+    .card{background:var(--surface);border:1px solid var(--border);
+      border-radius:4px;width:100%;max-width:480px;overflow:hidden;
+      box-shadow:0 0 60px rgba(0,229,255,.04)}
+    .card-bar{display:flex;align-items:center;gap:8px;padding:12px 18px;
+      border-bottom:1px solid var(--border);background:rgba(0,229,255,.03)}
+    .dot{width:9px;height:9px;border-radius:50%}
+    .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:var(--yes);animation:blinkDot 2s infinite}
+    .card-title-bar{font-family:var(--mono);font-size:.68rem;color:var(--muted);
+      margin-left:4px;letter-spacing:.07em}
+    .voter-tag{margin-left:auto;font-family:var(--mono);font-size:.65rem;
+      color:var(--accent);letter-spacing:.08em}
+    .card-body{padding:28px 26px}
+
+    /* ── enc strip ── */
+    .enc-strip{display:flex;align-items:center;gap:10px;
+      background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15);
+      border-radius:3px;padding:11px 15px;margin-bottom:26px}
+    .enc-ico{font-size:1.1rem;flex-shrink:0}
+    .enc-txt{font-family:var(--mono);font-size:.67rem;color:var(--yes);
+      letter-spacing:.03em;line-height:1.6}
+
+    /* ── question ── */
+    .q-wrap{text-align:center;margin-bottom:24px}
+    .q-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
+      letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
+    .q-text{font-size:1.25rem;font-weight:700;color:#fff}
+
+    /* ── voted badge ── */
+    .voted-badge{display:none;align-items:center;justify-content:center;gap:8px;
+      padding:12px;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);
+      border-radius:3px;margin-bottom:18px;font-family:var(--mono);
+      font-size:.72rem;color:var(--yes);letter-spacing:.06em}
+    .voted-badge.show{display:flex}
+
+    /* ── vote buttons ── */
+    .vote-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
+    .vote-btn{position:relative;padding:22px 14px;border:2px solid;border-radius:4px;
+      background:transparent;cursor:pointer;font-family:var(--sans);font-weight:700;
+      font-size:1.05rem;letter-spacing:.06em;transition:all .17s ease;overflow:hidden}
+    .vote-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s}
+    .vote-btn:hover:not(:disabled)::before{opacity:1}
+    .vote-btn:active:not(:disabled){transform:scale(.97)}
+    .vote-btn:disabled{opacity:.28;cursor:not-allowed;transform:none!important}
+    .btn-yes{border-color:var(--yes);color:var(--yes)}
+    .btn-yes::before{background:rgba(0,255,136,.07)}
+    .btn-yes:hover:not(:disabled){box-shadow:0 0 24px rgba(0,255,136,.18)}
+    .btn-no{border-color:var(--no);color:var(--no)}
+    .btn-no::before{background:rgba(255,56,96,.07)}
+    .btn-no:hover:not(:disabled){box-shadow:0 0 24px rgba(255,56,96,.18)}
+    .btn-icon{display:block;font-size:1.6rem;margin-bottom:3px}
+
+    /* ── divider ── */
+    .divider{height:1px;background:var(--border);margin:22px 0;position:relative}
+    .divider::after{content:'DECRYPTION PHASE';position:absolute;top:50%;left:50%;
+      transform:translate(-50%,-50%);background:var(--surface);padding:0 10px;
+      font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.14em}
+
+    /* ── decrypt section ── */
+    .decrypt-hint{font-family:var(--mono);font-size:.67rem;color:var(--muted);
+      margin-bottom:13px;line-height:1.7;text-align:center}
+    .btn-decrypt{width:100%;padding:14px;background:transparent;
+      border:1px solid rgba(0,229,255,.35);border-radius:4px;color:var(--accent);
+      font-family:var(--mono);font-size:.78rem;letter-spacing:.09em;
+      cursor:pointer;transition:all .18s}
+    .btn-decrypt:hover:not(:disabled){background:rgba(0,229,255,.05);
+      border-color:var(--accent);box-shadow:0 0 24px rgba(0,229,255,.1)}
+    .btn-decrypt:disabled{opacity:.28;cursor:not-allowed}
+
+    /* ── progress bar (election status) ── */
+    .progress-wrap{margin-top:22px}
+    .progress-label{display:flex;justify-content:space-between;
+      font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-bottom:6px}
+    .progress-bar{height:3px;background:var(--faint);border-radius:2px;overflow:hidden}
+    .progress-fill{height:100%;background:var(--accent);border-radius:2px;
+      transition:width .6s ease;width:0%}
+
+    /* ── result box ── */
+    .result-box{display:none;margin-top:22px;padding:18px;
+      background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.25);
+      border-radius:4px;text-align:center}
+    .result-box.show{display:block}
+    .result-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
+      letter-spacing:.12em;margin-bottom:8px}
+    .result-value{font-size:2rem;font-weight:800;color:var(--accent)}
+
+    /* ── log ── */
+    #log{margin-top:22px;font-family:var(--mono);font-size:.69rem;
+      line-height:1.85;max-height:150px;overflow-y:auto}
+    #log::-webkit-scrollbar{width:3px}
+    #log::-webkit-scrollbar-thumb{background:var(--border2)}
+    .log-entry{display:flex;gap:10px;padding:3px 0;
+      border-bottom:1px solid rgba(255,255,255,.03);
+      animation:fadeUp .22s ease}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .log-ts{color:var(--muted);flex-shrink:0;min-width:62px}
+    .log-ok{color:var(--yes)}.log-err{color:var(--no)}
+    .log-info{color:var(--accent)}.log-warn{color:#ffd600}
+
+    /* ── footer ── */
+    .footer{margin-top:28px;font-family:var(--mono);font-size:.62rem;
+      color:var(--muted);text-align:center;letter-spacing:.07em;line-height:2.2}
+  </style>
+</head>
+<body>
+<div class="page">
+  <div class="header">
+    <div class="badge"><span class="badge-dot"></span>MK-FHE SECURE VOTING DEMO</div>
+    <h1>Privacy<span>-</span>Preserving<br>E-Vote</h1>
+    <p class="subtitle">
+      Your vote is encrypted locally before transmission.<br>
+      The server only handles ciphertext — never plaintext.
+    </p>
+  </div>
+
+  <div class="card">
+    <div class="card-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="card-title-bar">secure-evote / ballot</span>
+      <span class="voter-tag" id="voterTag">VOTER</span>
+    </div>
+
+    <div class="card-body">
+      <!-- Enc indicator -->
+      <div class="enc-strip">
+        <span class="enc-ico">🔐</span>
+        <div class="enc-txt">END-TO-END ENCRYPTED · BFV-RNS · MULTIPARTY FHE · OpenFHE</div>
+      </div>
+
+      <!-- Question -->
+      <div class="q-wrap">
+        <div class="q-label">Ballot Question</div>
+        <div class="q-text">Do you approve this proposal?</div>
+      </div>
+
+      <!-- Voted confirmation -->
+      <div class="voted-badge" id="votedBadge">
+        <span>✓</span><span>VOTE ENCRYPTED &amp; TRANSMITTED TO SERVER</span>
+      </div>
+
+      <!-- Vote buttons -->
+      <div class="vote-row">
+        <button class="vote-btn btn-yes" id="btnYes" onclick="castVote('yes')">
+          <span class="btn-icon">✓</span>YES
+        </button>
+        <button class="vote-btn btn-no" id="btnNo" onclick="castVote('no')">
+          <span class="btn-icon">✗</span>NO
+        </button>
+      </div>
+
+      <!-- Election progress -->
+      <div class="progress-wrap">
+        <div class="progress-label">
+          <span>VOTES RECEIVED</span>
+          <span id="progressText">0 / 3</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+      </div>
+
+      <!-- Phase 2 -->
+      <div class="divider"></div>
+      <p class="decrypt-hint">
+        After ALL voters have cast ballots, each voter must<br>
+        contribute their key share to reveal the final tally.
+      </p>
+      <button class="btn-decrypt" id="btnDecrypt" onclick="partialDecrypt()">
+        [ SUBMIT DECRYPTION SHARE ]
+      </button>
+
+      <!-- Result -->
+      <div class="result-box" id="resultBox">
+        <div class="result-label">FINAL YES VOTES</div>
+        <div class="result-value" id="resultValue">—</div>
+      </div>
+
+      <!-- Log -->
+      <div id="log"></div>
+    </div>
+  </div>
+
+  <div class="footer">
+    <div>Privacy-Preserving E-Voting · Graduation Project</div>
+    <div>Multi-Key FHE · OpenFHE · C++17 · Node.js</div>
+  </div>
+</div>
+<script src="vote.js"></script>
+</body>
+</html>

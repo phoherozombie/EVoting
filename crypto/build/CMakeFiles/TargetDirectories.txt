@@ -1,0 +1,8 @@
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/setup.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/voter_keygen.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/encrypt_vote.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/tally.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/voter_partial_decrypt.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/combine.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/edit_cache.dir
+/Users/phucdo/evoting-system/crypto/build/CMakeFiles/rebuild_cache.dir
