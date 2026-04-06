@@ -68,7 +68,7 @@ simulate_voter() {
 
     "$BIN/keygen"
 
-    "$BIN/encrypt_vote" "$VOTE"
+    "$BIN/encrypt_vote" "voter${VOTER_ID}" "$VOTE"
 
     # Copy ciphertext to server inbox
     cp "client/data/enc_vote.bin" "server/data/ciphertexts/enc_vote_voter${VOTER_ID}.bin"

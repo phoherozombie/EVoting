@@ -12,7 +12,7 @@ int main() {
     std::cout << "\n[keygen] Loading shared CryptoContext...\n";
 
     CryptoContext<DCRTPoly> cc;
-    if (!Serial::DeserializeFromFile("../params/crypto_params.bin", cc, SerType::BINARY)) {
+    if (!Serial::DeserializeFromFile("./params/crypto_params.bin", cc, SerType::BINARY)) {
         std::cerr << "[keygen] ERROR: Cannot load crypto_params.bin\n";
         return 1;
     }
@@ -25,10 +25,10 @@ int main() {
         return 1;
     }
 
-    fs::create_directories("../client/data/keys");
-    if (!Serial::SerializeToFile("../client/data/keys/public_key.bin",
+    fs::create_directories("./client/data/keys");
+    if (!Serial::SerializeToFile("./client/data/keys/public_key.bin",
                                   keyPair.publicKey, SerType::BINARY) ||
-        !Serial::SerializeToFile("../client/data/keys/secret_key.bin",
+        !Serial::SerializeToFile("./client/data/keys/secret_key.bin",
                                   keyPair.secretKey, SerType::BINARY)) {
         std::cerr << "[keygen] ERROR: Could not write key files.\n";
         return 1;

@@ -27,12 +27,12 @@ int main() {
     std::cout << "[setup] Plaintext mod  : "
               << cc->GetCryptoParameters()->GetPlaintextModulus() << "\n";
 
-    fs::create_directories("../params");
-    if (!Serial::SerializeToFile("../params/crypto_params.bin", cc, SerType::BINARY)) {
+    fs::create_directories("./params");
+    if (!Serial::SerializeToFile("./params/crypto_params.bin", cc, SerType::BINARY)) {
         std::cerr << "[setup] ERROR: Could not write crypto_params.bin\n";
         return 1;
     }
-    std::cout << "[setup] Saved → ../params/crypto_params.bin\n";
+    std::cout << "[setup] Saved → ./params/crypto_params.bin\n";
     std::cout << "[setup] ✓ Done.\n\n";
     return 0;
 }

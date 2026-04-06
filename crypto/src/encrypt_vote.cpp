@@ -18,9 +18,9 @@
 using namespace lbcrypto;
 namespace fs = std::filesystem;
 
-static const std::string PARAMS_FILE   = "../params/crypto_params.bin";
-static const std::string JOINT_PK_FILE = "../server/data/keys/joint_pk.bin";
-static const std::string CIPHER_DIR    = "../server/data/ciphertexts";
+static const std::string PARAMS_FILE   = "./params/crypto_params.bin";
+static const std::string JOINT_PK_FILE = "./server/data/keys/joint_pk.bin";
+static const std::string CIPHER_DIR    = "./server/data/ciphertexts";
 
 int main(int argc, char* argv[]) {
     if (argc < 3) {

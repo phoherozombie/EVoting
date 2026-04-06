@@ -22,14 +22,14 @@ int main() {
     std::cout << "\n[tally] Starting homomorphic tally...\n";
 
     CryptoContext<DCRTPoly> cc;
-    if (!Serial::DeserializeFromFile("../params/crypto_params.bin", cc, SerType::BINARY)) {
+    if (!Serial::DeserializeFromFile("./params/crypto_params.bin", cc, SerType::BINARY)) {
         std::cerr << "[tally] ERROR: Cannot load crypto_params.bin\n"; return 1;
     }
     cc->Enable(PKE);
     cc->Enable(LEVELEDSHE);
     cc->Enable(MULTIPARTY);
 
-    const std::string voteDir = "../server/data/ciphertexts";
+    const std::string voteDir = "./server/data/ciphertexts";
     if (!fs::exists(voteDir)) {
         std::cerr << "[tally] ERROR: Directory not found: " << voteDir << "\n"; return 1;
     }
@@ -54,11 +54,11 @@ int main() {
         std::cout << "[tally]   Added: " << fp.filename() << "\n";
     }
 
-    fs::create_directories("../server/data/tally");
-    if (!Serial::SerializeToFile("../server/data/tally/enc_tally.bin", tally, SerType::BINARY)) {
+    fs::create_directories("./server/data/tally");
+    if (!Serial::SerializeToFile("./server/data/tally/enc_tally.bin", tally, SerType::BINARY)) {
         std::cerr << "[tally] ERROR: Could not write enc_tally.bin\n"; return 1;
     }
-    std::cout << "[tally] Saved → ../server/data/tally/enc_tally.bin\n";
+    std::cout << "[tally] Saved → ./server/data/tally/enc_tally.bin\n";
     std::cout << "[tally] ✓ Tally complete. Server never saw plaintext votes.\n\n";
     return 0;
 }

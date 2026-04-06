@@ -21,14 +21,14 @@ int main() {
     std::cout << "\n[combine] Loading CryptoContext...\n";
 
     CryptoContext<DCRTPoly> cc;
-    if (!Serial::DeserializeFromFile("../params/crypto_params.bin", cc, SerType::BINARY)) {
+    if (!Serial::DeserializeFromFile("./params/crypto_params.bin", cc, SerType::BINARY)) {
         std::cerr << "[combine] ERROR: Cannot load crypto_params.bin\n"; return 1;
     }
     cc->Enable(PKE);
     cc->Enable(LEVELEDSHE);
     cc->Enable(MULTIPARTY);
 
-    const std::string sharesDir = "../server/data/shares";
+    const std::string sharesDir = "./server/data/shares";
     if (!fs::exists(sharesDir)) {
         std::cerr << "[combine] ERROR: Shares dir not found.\n"; return 1;
     }
@@ -62,8 +62,8 @@ int main() {
               << std::string(16 - std::to_string(finalTally).size(), ' ') << "║\n";
     std::cout << "╚═══════════════════════════════════╝\n\n";
 
-    fs::create_directories("../server/data/tally");
-    std::ofstream out("../server/data/tally/final_result.txt");
+    fs::create_directories("./server/data/tally");
+    std::ofstream out("./server/data/tally/final_result.txt");
     if (out.is_open()) {
         out << "FINAL YES VOTES = " << finalTally << "\n";
         out.close();

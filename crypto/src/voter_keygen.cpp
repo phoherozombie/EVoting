@@ -23,10 +23,10 @@
 using namespace lbcrypto;
 namespace fs = std::filesystem;
 
-static const std::string KEYS_DIR    = "../server/data/keys";
-static const std::string PARAMS_FILE = "../params/crypto_params.bin";
-static const std::string JOINT_PK    = "../server/data/keys/joint_pk.bin";
-static const std::string VOTER_LIST  = "../server/data/keys/voter_list.txt";
+static const std::string KEYS_DIR    = "./server/data/keys";
+static const std::string PARAMS_FILE = "./params/crypto_params.bin";
+static const std::string JOINT_PK    = "./server/data/keys/joint_pk.bin";
+static const std::string VOTER_LIST  = "./server/data/keys/voter_list.txt";
 
 // Load existing voter IDs
 static std::vector<std::string> loadVoterList() {

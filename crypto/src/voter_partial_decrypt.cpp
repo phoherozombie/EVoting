@@ -21,11 +21,11 @@
 using namespace lbcrypto;
 namespace fs = std::filesystem;
 
-static const std::string PARAMS_FILE = "../params/crypto_params.bin";
-static const std::string KEYS_DIR    = "../server/data/keys";
-static const std::string VOTER_LIST  = "../server/data/keys/voter_list.txt";
-static const std::string TALLY_FILE  = "../server/data/tally/enc_tally.bin";
-static const std::string SHARES_DIR  = "../server/data/shares";
+static const std::string PARAMS_FILE = "./params/crypto_params.bin";
+static const std::string KEYS_DIR    = "./server/data/keys";
+static const std::string VOTER_LIST  = "./server/data/keys/voter_list.txt";
+static const std::string TALLY_FILE  = "./server/data/tally/enc_tally.bin";
+static const std::string SHARES_DIR  = "./server/data/shares";
 
 // Read voter_list.txt and return ordered list
 static std::vector<std::string> loadVoterList() {
