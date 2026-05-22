@@ -35,7 +35,8 @@ rm -rf "$ROOT/params" \
        "$ROOT/client/data" \
        "$ROOT/server/data/ciphertexts" \
        "$ROOT/server/data/tally" \
-       "$ROOT/server/data/shares"
+       "$ROOT/server/data/shares" \
+       "$ROOT/server/data/keys"
 
 mkdir -p "$ROOT/params" \
          "$ROOT/server/data/ciphertexts" \
@@ -61,49 +62,40 @@ simulate_voter() {
     mkdir -p "client_${VOTER_ID}/data/keys"
     mkdir -p "client_${VOTER_ID}/data"
 
-    # Keygen: use voter-specific key directory
-    # For test: we point binaries at temp dirs via symlinks
-    rm -rf "client/data"
-    mkdir -p "client/data/keys"
-
-    "$BIN/keygen"
+    # Keygen: registers voter and updates joint_pk.bin in server/data/keys
+    "$BIN/voter_keygen" "voter${VOTER_ID}"
 
     "$BIN/encrypt_vote" "voter${VOTER_ID}" "$VOTE"
 
-    # Copy ciphertext to server inbox
-    cp "client/data/enc_vote.bin" "server/data/ciphertexts/enc_vote_voter${VOTER_ID}.bin"
-    echo "  → Ciphertext saved: server/data/ciphertexts/enc_vote_voter${VOTER_ID}.bin"
-
-    # Save keys for partial decrypt later
-    cp -r "client/data/keys" "client_${VOTER_ID}/data/"
+    echo "  → Voter ${VOTER_ID} registered and vote recorded."
 }
 
-# ── Step 2: Simulate 3 voters ─────────────────────────────────
-# Vote pattern: voter1=YES, voter2=YES, voter3=NO → expected tally = 2
-simulate_voter 1 1
-simulate_voter 2 1
-simulate_voter 3 0
+# ── Step 2: Registration ──────────────────────────────────────
+echo ""
+echo "── STEP 2: Voter Registration"
+for V in 1 2 3; do
+    "$BIN/voter_keygen" "voter${V}"
+done
+
+# ── Step 3: Voting ──────────────────────────────────────────
+echo ""
+echo "── STEP 3: Cast Ballots (under FINAL joint key)"
+"$BIN/encrypt_vote" "voter1" 1
+"$BIN/encrypt_vote" "voter2" 1
+"$BIN/encrypt_vote" "voter3" 0
 
 echo ""
-echo "── STEP 3: Homomorphic Tally (server)"
+echo "── STEP 4: Homomorphic Tally (server)"
 "$BIN/tally"
 
 echo ""
-echo "── STEP 4: Partial Decryption (each voter)"
+echo "── STEP 5: Partial Decryption (each voter)"
 
 for V in 1 2 3; do
     echo ""
     echo "  Voter $V partial decrypt..."
-    # Restore this voter's keys
-    rm -rf "client/data"
-    mkdir -p "client/data"
-    cp -r "client_${V}/data/keys" "client/data/"
-    mkdir -p "client/data/tally"
-    cp "server/data/tally/enc_tally.bin" "client/data/tally/"
-
-    "$BIN/partial_decrypt"
-
-    cp "client/data/shares/my_share.bin" "server/data/shares/share_voter${V}.bin"
+    # voter_partial_decrypt handles lead/main roles automatically based on order
+    "$BIN/voter_partial_decrypt" "voter${V}"
     echo "  → Share saved: server/data/shares/share_voter${V}.bin"
 done
 

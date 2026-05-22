@@ -23,16 +23,34 @@ static const std::string JOINT_PK_FILE = "./server/data/keys/joint_pk.bin";
 static const std::string CIPHER_DIR    = "./server/data/ciphertexts";
 
 int main(int argc, char* argv[]) {
-    if (argc < 3) {
-        std::cerr << "Usage: encrypt_vote <voter_id> <0|1>\n";
+    if (argc < 2) {
+        std::cerr << "Usage:\n";
+        std::cerr << "  (Voter mode) : encrypt_vote <0|1>          -> saves to client/data/enc_vote.bin\n";
+        std::cerr << "  (Server mode): encrypt_vote <id> <0|1>     -> saves to server/data/ciphertexts/enc_vote_<id>.bin\n";
         return 1;
     }
-    const std::string voterId(argv[1]);
-    int vote = std::stoi(std::string(argv[2]));
-    if (vote != 0 && vote != 1) { std::cerr << "ERROR: vote must be 0 or 1\n"; return 1; }
 
-    std::cout << "\n[encrypt_vote] Voter: " << voterId
-              << "  Choice: " << (vote ? "YES (1)" : "NO (0)") << "\n";
+    std::string voterId = "";
+    int vote = 0;
+    std::string outFile = "";
+    std::string pkFile = JOINT_PK_FILE;
+
+    if (argc == 2) {
+        // Voter mode: encrypt_vote <vote>
+        vote = std::stoi(std::string(argv[1]));
+        outFile = "./client/data/enc_vote.bin";
+        std::cout << "\n[encrypt_vote] Mode: VOTER  Choice: " << (vote ? "YES (1)" : "NO (0)") << "\n";
+    } else {
+        // Server mode: encrypt_vote <id> <vote>
+        voterId = argv[1];
+        vote = std::stoi(std::string(argv[2]));
+        fs::create_directories(CIPHER_DIR);
+        outFile = CIPHER_DIR + "/enc_vote_" + voterId + ".bin";
+        std::cout << "\n[encrypt_vote] Mode: SERVER  Voter: " << voterId
+                  << "  Choice: " << (vote ? "YES (1)" : "NO (0)") << "\n";
+    }
+
+    if (vote != 0 && vote != 1) { std::cerr << "ERROR: vote must be 0 or 1\n"; return 1; }
 
     // ── Load CryptoContext ────────────────────────────────────
     CryptoContext<DCRTPoly> cc;
@@ -45,9 +63,9 @@ int main(int argc, char* argv[]) {
 
     // ── Load joint public key ────────────────────────────────
     PublicKey<DCRTPoly> jointPk;
-    if (!Serial::DeserializeFromFile(JOINT_PK_FILE, jointPk, SerType::BINARY)) {
-        std::cerr << "[encrypt_vote] ERROR: Cannot load joint_pk.bin\n"
-                  << "  (Registration must be finalized first)\n";
+    if (!Serial::DeserializeFromFile(pkFile, jointPk, SerType::BINARY)) {
+        std::cerr << "[encrypt_vote] ERROR: Cannot load " << pkFile << "\n"
+                  << "  (Election must be initialized first)\n";
         return 1;
     }
 
@@ -55,8 +73,8 @@ int main(int argc, char* argv[]) {
     auto ciphertext = cc->Encrypt(jointPk, cc->MakePackedPlaintext({(int64_t)vote}));
 
     // ── Save ciphertext ───────────────────────────────────────
-    fs::create_directories(CIPHER_DIR);
-    const std::string outFile = CIPHER_DIR + "/enc_vote_" + voterId + ".bin";
+    fs::path outPath(outFile);
+    fs::create_directories(outPath.parent_path());
     if (!Serial::SerializeToFile(outFile, ciphertext, SerType::BINARY)) {
         std::cerr << "[encrypt_vote] ERROR: Cannot write " << outFile << "\n"; return 1;
     }
