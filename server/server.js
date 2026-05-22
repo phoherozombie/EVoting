@@ -15,6 +15,7 @@ const express       = require('express');
 const cors          = require('cors');
 const fs            = require('fs');
 const path          = require('path');
+const crypto        = require('crypto');
 const { spawnSync } = require('child_process');
 
 const app  = express();
@@ -30,6 +31,8 @@ const DIRS = {
     ciphertexts: path.join(DATA_DIR, 'ciphertexts'),
     tally:       path.join(DATA_DIR, 'tally'),
     shares:      path.join(DATA_DIR, 'shares'),
+    registry:    path.join(DATA_DIR, 'registry'),
+    voters:      path.join(DATA_DIR, 'voters')
 };
 Object.values(DIRS).forEach(d => fs.mkdirSync(d, { recursive: true }));
 fs.mkdirSync(PARAMS_DIR, { recursive: true });
@@ -39,6 +42,14 @@ const VOTER_LIST     = path.join(DIRS.keys, 'voter_list.txt');
 const JOINT_PK       = path.join(DIRS.keys, 'joint_pk.bin');
 const ENC_TALLY      = path.join(DIRS.tally, 'enc_tally.bin');
 const FINAL_RESULT   = path.join(DIRS.tally, 'final_result.txt');
+const CCCD_INDEX     = path.join(DIRS.registry, 'cccd_index.json');
+
+function loadCCCDIndex() {
+    try { return JSON.parse(fs.readFileSync(CCCD_INDEX, 'utf8')); } catch { return {}; }
+}
+function saveCCCDIndex(idx) {
+    fs.writeFileSync(CCCD_INDEX, JSON.stringify(idx, null, 2));
+}
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors());
@@ -130,31 +141,74 @@ app.get('/health', (_req, res) => res.json({ status: 'ok' }));
 app.get('/status', (_req, res) => res.json(electionState()));
 
 // ── POST /register  ───────────────────────────────────────────
-// Body: { voterId: "alice" }
+// Body: { fullName: "...", cccd: "...", dob: "...", address: "...", contact: "...", voterId: "..." (optional) }
 // Registers a new voter, generates their keypair, updates joint_pk.
 app.post('/register', (req, res) => {
-    const { voterId } = req.body;
-    if (!voterId || typeof voterId !== 'string' || !voterId.trim())
-        return res.status(400).json({ error: 'voterId is required' });
+    let { fullName, cccd, dob, address, contact, voterId } = req.body;
+    
+    // For backward compatibility with old script
+    if (voterId && !fullName && !cccd) {
+        fullName = voterId;
+        cccd = voterId; // Mock cccd if running old demo script
+    }
+
+    if (!fullName || !fullName.trim())
+        return res.status(400).json({ error: 'fullName is required' });
+    if (!cccd || !cccd.trim())
+        return res.status(400).json({ error: 'cccd is required' });
 
     const st = loadState();
     if (st.finalized)
         return res.status(409).json({ error: 'Registration is closed. Election already finalized.' });
 
+    const cccdHash = crypto.createHash('sha256').update(cccd.trim()).digest('hex');
+    const index = loadCCCDIndex();
+    if (index[cccdHash]) {
+        return res.status(409).json({ error: 'CCCD is already registered.' });
+    }
+
+    if (!voterId || !voterId.trim()) {
+        voterId = `voter_${Date.now()}_${Math.floor(Math.random()*1000)}`;
+    }
     const id = voterId.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    
     const existing = readVoterList();
     if (existing.includes(id))
         return res.status(409).json({ error: `'${id}' is already registered.` });
 
-    console.log(`[register] Registering voter: ${id}`);
+    console.log(`[register] Registering voter: ${fullName} (ID: ${id})`);
     try {
         const out = runBinary('voter_keygen', [id]);
         console.log(out);
+        
+        // Save to voters directory
+        const voterDir = path.join(DIRS.voters, id);
+        fs.mkdirSync(voterDir, { recursive: true });
+        
+        const profile = {
+            voter_id: id,
+            full_name: fullName.trim(),
+            cccd: cccd.trim(), // In a real system, do not store plain CCCD. Storing here for demo validation
+            cccd_hash: cccdHash,
+            dob: dob ? dob.trim() : '',
+            address: address ? address.trim() : '',
+            contact: contact ? contact.trim() : '',
+            registered_at: new Date().toISOString(),
+            public_key_path: path.join(DIRS.keys, `pk_${id}.bin`),
+            private_key_metadata: `Demo Mode: Secret key generated on server at ${path.join(DIRS.keys, `sk_${id}.bin`)}`
+        };
+        fs.writeFileSync(path.join(voterDir, 'profile.json'), JSON.stringify(profile, null, 2));
+        fs.writeFileSync(path.join(voterDir, 'status.json'), JSON.stringify({ voted: false, shared_decryption: false }, null, 2));
+        
+        index[cccdHash] = id;
+        saveCCCDIndex(index);
+        
         const voters = readVoterList();
         res.json({
             status:  'ok',
-            message: `Voter '${id}' registered. Joint key updated.`,
+            message: `Voter '${fullName}' registered. Joint key updated.`,
             voters,
+            voter_id: id
         });
     } catch (err) {
         console.error('[register] ERROR:', err.message);
@@ -303,9 +357,16 @@ app.get('/result', (_req, res) => {
 // ── POST /reset  ──────────────────────────────────────────────
 app.post('/reset', (_req, res) => {
     // Clear all data directories
-    [DIRS.ciphertexts, DIRS.tally, DIRS.shares, DIRS.keys].forEach(dir => {
+    [DIRS.ciphertexts, DIRS.tally, DIRS.shares, DIRS.keys, DIRS.registry, DIRS.voters].forEach(dir => {
         if (fs.existsSync(dir))
-            fs.readdirSync(dir).forEach(f => fs.unlinkSync(path.join(dir, f)));
+            fs.readdirSync(dir).forEach(f => {
+                const fullPath = path.join(dir, f);
+                if (fs.statSync(fullPath).isDirectory()) {
+                    fs.rmSync(fullPath, { recursive: true, force: true });
+                } else {
+                    fs.unlinkSync(fullPath);
+                }
+            });
     });
     // Clear state
     if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
@@ -543,11 +604,29 @@ return `<!DOCTYPE html>
       <!-- ══ PHASE: REGISTRATION ══ -->
       <div class="phase-panel" id="panelReg">
         <div class="strip strip-accent">
-          🔑 Mỗi cử tri đăng ký tên → server tạo cặp khóa (pk_i, sk_i) và cập nhật <strong>joint public key</strong>.
+          🔑 Điền thông tin cá nhân. Hệ thống tự động mã hóa và ẩn danh danh tính của bạn.
         </div>
         <div class="field">
-          <label>TÊN CỬ TRI</label>
-          <input type="text" id="regName" placeholder="Nhập tên (vd: alice, bob...)" maxlength="30" id="regNameInput">
+          <label>HỌ VÀ TÊN</label>
+          <input type="text" id="regName" placeholder="Nhập họ và tên (vd: Nguyen Van A)" maxlength="50">
+        </div>
+        <div class="field">
+          <label>SỐ CCCD / CITIZEN ID</label>
+          <input type="text" id="regCCCD" placeholder="Nhập số CCCD (12 số)" maxlength="12">
+        </div>
+        <div class="field" style="display:flex; gap:10px;">
+          <div style="flex:1;">
+            <label>NGÀY SINH</label>
+            <input type="date" id="regDOB">
+          </div>
+          <div style="flex:1;">
+            <label>ĐIỆN THOẠI / EMAIL</label>
+            <input type="text" id="regContact" placeholder="Nhập liên hệ">
+          </div>
+        </div>
+        <div class="field">
+          <label>ĐỊA CHỈ</label>
+          <input type="text" id="regAddress" placeholder="Nhập địa chỉ thường trú">
         </div>
         <button class="btn btn-accent" id="btnRegister" onclick="doRegister()">
           [ ĐĂNG KÝ VOTER ]
@@ -798,19 +877,29 @@ function updateVoterTags(s) {
 
 async function doRegister() {
   const name = document.getElementById('regName').value.trim();
-  if (!name) { log('Nhập tên trước.', 'err'); return; }
+  const cccd = document.getElementById('regCCCD').value.trim();
+  const dob = document.getElementById('regDOB').value.trim();
+  const contact = document.getElementById('regContact').value.trim();
+  const address = document.getElementById('regAddress').value.trim();
+
+  if (!name || !cccd) { log('Vui lòng nhập đủ Họ Tên và CCCD.', 'err'); return; }
   document.getElementById('btnRegister').disabled = true;
-  log('Đang tạo keypair cho ' + name + '...', 'info');
+  log('Đang kiểm tra CCCD và tạo keypair cho ' + name + '...', 'info');
   try {
     const r = await fetch('/register', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ voterId: name }),
+      body: JSON.stringify({ fullName: name, cccd: cccd, dob: dob, contact: contact, address: address }),
     });
     const d = await r.json();
-    if (!r.ok) { log('Lỗi: ' + d.error, 'err'); return; }
+    if (!r.ok) { log('Lỗi: ' + d.error, 'err'); document.getElementById('btnRegister').disabled = false; return; }
     log('✓ ' + d.message, 'ok');
+    log('Voter ID của bạn là: ' + d.voter_id, 'info');
     document.getElementById('regName').value = '';
+    document.getElementById('regCCCD').value = '';
+    document.getElementById('regDOB').value = '';
+    document.getElementById('regContact').value = '';
+    document.getElementById('regAddress').value = '';
     poll();
   } catch(e) { log('Network error: ' + e.message, 'err'); }
   finally { document.getElementById('btnRegister').disabled = false; }
