@@ -1,0 +1,41 @@
+# Build artifacts
+crypto/build/
+**/CMakeFiles/
+**/CMakeCache.txt
+**/cmake_install.cmake
+**/Makefile
+**/progress.marks
+**/*.o
+**/*.d
+**/*.bin
+**/*.txt
+!README.md
+!CMakeLists.txt
+!**/src/**/*.cpp
+!**/src/**/*.h
+
+# Specific binaries
+crypto/build/setup
+crypto/build/keygen
+crypto/build/partial_decrypt
+crypto/build/voter_keygen
+crypto/build/tally
+crypto/build/combine
+crypto/build/voter_partial_decrypt
+crypto/build/encrypt_vote
+
+# Node.js
+node_modules/
+client/node_modules/
+package-lock.json
+
+# Data and Params
+/params/
+server/data/
+client/data/
+client_1/data/
+web/data/
+
+# IDE
+.vscode/
+.DS_Store

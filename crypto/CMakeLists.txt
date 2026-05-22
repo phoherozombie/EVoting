@@ -5,13 +5,20 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # ── Find OpenFHE ──────────────────────────────────────────────
-set(OPENFHE_ROOT "$ENV{HOME}/openfhe-development")
-set(OPENFHE_BUILD "${OPENFHE_ROOT}/build")
+# Ưu tiên sử dụng OpenFHE_DIR được truyền từ command line (-DOpenFHE_DIR=...)
+if(NOT OpenFHE_DIR)
+    set(OPENFHE_BUILD "$ENV{HOME}/Project /openfhe-development/build")
+    set(OpenFHE_DIR "${OPENFHE_BUILD}")
+endif()
 
-set(OpenFHE_DIR "${OPENFHE_BUILD}/OpenFHEConfig.cmake")
-find_package(OpenFHE REQUIRED PATHS "${OPENFHE_BUILD}" NO_DEFAULT_PATH)
+# Tính toán OPENFHE_ROOT từ OpenFHE_DIR (giả định OpenFHE_DIR là thư mục build)
+get_filename_component(OPENFHE_ROOT "${OpenFHE_DIR}" DIRECTORY)
+set(OPENFHE_BUILD "${OpenFHE_DIR}")
+
+find_package(OpenFHE REQUIRED PATHS "${OpenFHE_DIR}" NO_DEFAULT_PATH)
 
 message(STATUS "OpenFHE version : ${OpenFHE_VERSION}")
+message(STATUS "OpenFHE root    : ${OPENFHE_ROOT}")
 
 # ── Include paths ─────────────────────────────────────────────
 include_directories(
@@ -55,7 +62,11 @@ endif()
 # Core infrastructure
 add_executable(setup                 src/setup.cpp)
 
-# MK-FHE multiparty binaries
+# MK-FHE binaries (Chuẩn script yêu cầu)
+add_executable(keygen                src/keygen.cpp)
+add_executable(partial_decrypt       src/partial_decrypt.cpp)
+
+# MK-FHE multiparty binaries (Bản mở rộng)
 add_executable(voter_keygen          src/voter_keygen.cpp)
 add_executable(encrypt_vote          src/encrypt_vote.cpp)
 add_executable(tally                 src/tally.cpp)
@@ -63,7 +74,7 @@ add_executable(voter_partial_decrypt src/voter_partial_decrypt.cpp)
 add_executable(combine               src/combine.cpp)
 
 # ── Link OpenFHE + libomp to every target ─────────────────────
-foreach(TARGET setup voter_keygen encrypt_vote tally voter_partial_decrypt combine)
+foreach(TARGET setup keygen partial_decrypt voter_keygen encrypt_vote tally voter_partial_decrypt combine)
     target_link_libraries(${TARGET} PRIVATE ${OpenFHE_LIBRARIES})
     if(APPLE AND OMP_LIB)
         target_link_libraries(${TARGET} PRIVATE "${OMP_LIB}")
@@ -72,6 +83,6 @@ endforeach()
 
 # ── Output binaries to build/ ─────────────────────────────────
 set_target_properties(
-    setup voter_keygen encrypt_vote tally voter_partial_decrypt combine
+    setup keygen partial_decrypt voter_keygen encrypt_vote tally voter_partial_decrypt combine
     PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
 )

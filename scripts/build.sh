@@ -25,11 +25,19 @@ echo ""
 mkdir -p "$BUILD"
 cd "$BUILD"
 
-CMAKE_ARGS="-DCMAKE_BUILD_TYPE=Release"
-[[ -n "$OPENFHE_HINT" ]] && CMAKE_ARGS="$CMAKE_ARGS -DOpenFHE_DIR=$OPENFHE_HINT/lib/cmake/OpenFHE"
+CMAKE_ARGS=("-DCMAKE_BUILD_TYPE=Release")
+if [[ -n "$OPENFHE_HINT" ]]; then
+    if [[ -f "$OPENFHE_HINT/OpenFHEConfig.cmake" ]]; then
+        # Đường dẫn tới thư mục build trực tiếp
+        CMAKE_ARGS+=("-DOpenFHE_DIR=$OPENFHE_HINT")
+    else
+        # Đường dẫn tới thư mục cài đặt tiêu chuẩn
+        CMAKE_ARGS+=("-DOpenFHE_DIR=$OPENFHE_HINT/lib/cmake/OpenFHE")
+    fi
+fi
 
 echo "── cmake configure..."
-cmake $CMAKE_ARGS "$CRYPTO"
+cmake "${CMAKE_ARGS[@]}" "$CRYPTO"
 
 echo ""
 echo "── cmake build (4 parallel jobs)..."
