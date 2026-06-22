@@ -6,16 +6,6 @@
 //   SERVER_URL   http://192.168.1.100:3001   tally server address
 //   VOTER_ID     voter1 | voter2 | voter3
 //   CLIENT_PORT  3000
-//
-// Routes:
-//   GET  /          → serve voting HTML page
-//   GET  /health    → liveness
-//   GET  /status    → this voter's local state
-//   POST /vote      → browser submits YES/NO
-//   POST /partial-decrypt → browser triggers share submission
-//
-// Start:
-//   SERVER_URL=http://192.168.1.100:3001 VOTER_ID=voter1 node client.js
 // =============================================================
 'use strict';
 
@@ -39,7 +29,10 @@ const KEYS_DIR   = path.join(DATA, 'keys');
 const TALLY_DIR  = path.join(DATA, 'tally');
 const SHARES_DIR = path.join(DATA, 'shares');
 
-[KEYS_DIR, TALLY_DIR, SHARES_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
+function ensureDirectories() {
+    [KEYS_DIR, TALLY_DIR, SHARES_DIR].forEach(d => fs.mkdirSync(d, { recursive: true }));
+}
+ensureDirectories();
 
 // ── Middleware ────────────────────────────────────────────────
 app.use(cors());
@@ -56,6 +49,9 @@ app.use((req, _res, next) => {
 // ── State ─────────────────────────────────────────────────────
 let hasVoted          = false;
 let shareSubmitted    = false;
+let isRegistered      = false;
+let authToken         = null;
+let isFirstVoter      = false;
 
 // ── Helpers ───────────────────────────────────────────────────
 function runBinary(name, args = []) {
@@ -94,74 +90,222 @@ async function postBinary(url, buf, headers = {}) {
     return data;
 }
 
+function resetLocalState() {
+    console.log(`[${VOTER_ID}] Resetting local client state...`);
+    [KEYS_DIR, TALLY_DIR, SHARES_DIR].forEach(dir => {
+        if (fs.existsSync(dir)) {
+            fs.readdirSync(dir).forEach(f => {
+                const fullPath = path.join(dir, f);
+                if (!fs.statSync(fullPath).isDirectory()) {
+                    try { fs.unlinkSync(fullPath); } catch (e) {}
+                }
+            });
+        }
+    });
+    const voteFile = path.join(DATA, 'enc_vote.bin');
+    if (fs.existsSync(voteFile)) {
+        try { fs.unlinkSync(voteFile); } catch (e) {}
+    }
+    hasVoted = false;
+    shareSubmitted = false;
+    isRegistered = false;
+    authToken = null;
+    isFirstVoter = false;
+}
+
+async function runRegistrationLoop() {
+    while (!isRegistered) {
+        try {
+            console.log(`[${VOTER_ID}] Attempting registration with server at ${SERVER_URL}...`);
+            const res = await fetch(`${SERVER_URL}/register`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ voterId: VOTER_ID, fullName: VOTER_ID, cccd: VOTER_ID })
+            });
+            if (!res.ok) {
+                const data = await res.json();
+                console.error(`[${VOTER_ID}] Registration endpoint returned error:`, data.error);
+                await new Promise(r => setTimeout(r, 5000));
+                continue;
+            }
+            const data = await res.json();
+            authToken = data.token;
+            isFirstVoter = data.isFirst === 1;
+            console.log(`[${VOTER_ID}] Registered. Token acquired. isFirst: ${isFirstVoter}`);
+
+            ensureDirectories();
+            const tempJointPk = path.join(KEYS_DIR, 'temp_joint_pk.bin');
+            if (!isFirstVoter) {
+                console.log(`[${VOTER_ID}] Downloading current joint_pk.bin from server...`);
+                const jointPkBuf = await fetchBinary(`${SERVER_URL}/joint_pk`);
+                fs.writeFileSync(tempJointPk, jointPkBuf);
+                console.log(`[${VOTER_ID}] Joint PK downloaded (${jointPkBuf.length} bytes)`);
+            }
+
+            const outSk = path.join(KEYS_DIR, 'secret_key.bin');
+            const outPk = path.join(KEYS_DIR, 'public_key.bin');
+            const paramsFile = path.join(ROOT, 'params', 'crypto_params.bin');
+            const dummyPk = path.join(KEYS_DIR, 'dummy.bin');
+            if (isFirstVoter) {
+                fs.writeFileSync(dummyPk, Buffer.alloc(0)); // dummy file
+            }
+
+            console.log(`[${VOTER_ID}] Running voter_keygen binary...`);
+            runBinary('voter_keygen', [
+                VOTER_ID,
+                isFirstVoter ? '1' : '0',
+                isFirstVoter ? dummyPk : tempJointPk,
+                outSk,
+                outPk,
+                paramsFile
+            ]);
+
+            console.log(`[${VOTER_ID}] Uploading public key share to server...`);
+            const pkBuf = fs.readFileSync(outPk);
+            await postBinary(`${SERVER_URL}/upload_pk`, pkBuf, {
+                'Authorization': `Bearer ${authToken}`
+            });
+
+            isRegistered = true;
+            console.log(`[${VOTER_ID}] ✓ Registration and key generation complete.`);
+        } catch (err) {
+            console.error(`[${VOTER_ID}] Registration / Keygen failed:`, err.message);
+            await new Promise(r => setTimeout(r, 5000));
+        }
+    }
+}
+
+// Start registration loop in background on startup
+runRegistrationLoop();
+
 // ── GET /health ───────────────────────────────────────────────
 app.get('/health', (_req, res) => {
     res.json({
         status: 'ok',
         voter:  VOTER_ID,
         server: SERVER_URL,
+        is_registered: isRegistered,
         hasVoted,
         shareSubmitted,
     });
 });
 
+// ── GET /candidates ─────────────────────────────────────────
+app.get('/candidates', async (_req, res) => {
+    try {
+        const upstream = await fetch(`${SERVER_URL}/candidates`);
+        if (!upstream.ok) {
+            const text = await upstream.text();
+            return res.status(upstream.status).json({ error: text });
+        }
+        const data = await upstream.json();
+        res.json(data);
+    } catch (err) {
+        console.error(`[${VOTER_ID}] /candidates proxy error:`, err.message);
+        res.status(502).json({ error: `Cannot reach tally server: ${err.message}` });
+    }
+});
+
 // ── GET /status ───────────────────────────────────────────────
-app.get('/status', (_req, res) => {
-    const hasKeys      = fs.existsSync(path.join(KEYS_DIR, 'public_key.bin'));
+app.get('/status', async (_req, res) => {
+    const hasKeys      = fs.existsSync(path.join(KEYS_DIR, 'public_key.bin')) && fs.existsSync(path.join(KEYS_DIR, 'secret_key.bin'));
     const hasVoteFile  = fs.existsSync(path.join(DATA, 'enc_vote.bin'));
     const hasTally     = fs.existsSync(path.join(TALLY_DIR, 'enc_tally.bin'));
     const hasShare     = fs.existsSync(path.join(SHARES_DIR, 'my_share.bin'));
-    res.json({
+
+    const local = {
         voter: VOTER_ID,
         server: SERVER_URL,
+        is_registered: isRegistered,
         keys_generated: hasKeys,
         vote_encrypted: hasVoteFile,
         has_voted: hasVoted,
         tally_downloaded: hasTally,
         share_submitted: shareSubmitted,
         share_produced: hasShare,
-    });
+    };
+
+    try {
+        const upstream = await fetch(`${SERVER_URL}/status`);
+        if (upstream.ok) {
+            const serverState = await upstream.json();
+            const voters = serverState.voters || [];
+            if (isRegistered && !voters.includes(VOTER_ID)) {
+                console.log(`[${VOTER_ID}] Detected server reset (not in voter list). Resetting local client state.`);
+                resetLocalState();
+                // trigger re-registration
+                runRegistrationLoop();
+                local.is_registered = false;
+                local.keys_generated = false;
+                local.vote_encrypted = false;
+                local.has_voted = false;
+                local.tally_downloaded = false;
+                local.share_submitted = false;
+                local.share_produced = false;
+            }
+            return res.json({ ...serverState, ...local });
+        }
+    } catch (_) { /* server unreachable */ }
+
+    res.json(local);
 });
 
-// ── POST /vote ────────────────────────────────────────────────
-// Called by the browser when voter clicks YES / NO
+// ── POST /vote ───────────────────────────────────────────────
 app.post('/vote', async (req, res) => {
+    if (!isRegistered || !authToken) {
+        return res.status(400).json({ error: 'Client registration not completed yet.' });
+    }
     if (hasVoted) {
         return res.status(409).json({ error: 'You have already voted in this session.' });
     }
 
-    const { vote } = req.body;
-    if (vote !== 'yes' && vote !== 'no') {
-        return res.status(400).json({ error: 'vote must be "yes" or "no"' });
+    let candidateIndex;
+    if (typeof req.body.candidateIndex !== 'undefined') {
+        candidateIndex = parseInt(req.body.candidateIndex, 10);
+        if (isNaN(candidateIndex) || candidateIndex < 0) {
+            return res.status(400).json({ error: 'candidateIndex must be a non-negative integer' });
+        }
+    } else {
+        return res.status(400).json({ error: 'candidateIndex (integer) is required' });
     }
-    const voteInt = vote === 'yes' ? '1' : '0';
+
+    const voteInt = String(candidateIndex);
 
     console.log(`\n[${VOTER_ID}] === VOTE PHASE ===`);
-    console.log(`[${VOTER_ID}] Choice: ${vote.toUpperCase()} (${voteInt})`);
+    console.log(`[${VOTER_ID}] Choice: candidate[${candidateIndex}]`);
 
     try {
-        // ── 1. Encrypt vote via C++ binary ───────────────────
-        console.log(`[${VOTER_ID}] Running encrypt_vote ${voteInt}...`);
-        runBinary('encrypt_vote', [voteInt]);
+        // ── 1. Download current joint_pk.bin to ensure we have the finalized joint key ──
+        console.log(`[${VOTER_ID}] Downloading current joint_pk.bin from server...`);
+        const jointPkBuf = await fetchBinary(`${SERVER_URL}/joint_pk`);
+        const tempJointPk = path.join(KEYS_DIR, 'temp_joint_pk.bin');
+        fs.writeFileSync(tempJointPk, jointPkBuf);
+        console.log(`[${VOTER_ID}] Joint PK downloaded (${jointPkBuf.length} bytes)`);
 
-        // ── 2. Read ciphertext ───────────────────────────────
-        const cipherPath = path.join(DATA, 'enc_vote.bin');
-        if (!fs.existsSync(cipherPath)) {
+        // ── 2. Encrypt vote via C++ binary ──────────────────
+        const outEncVote = path.join(DATA, 'enc_vote.bin');
+        const paramsFile = path.join(ROOT, 'params', 'crypto_params.bin');
+        console.log(`[${VOTER_ID}] Running encrypt_vote ${voteInt}...`);
+        runBinary('encrypt_vote', [voteInt, tempJointPk, outEncVote, paramsFile]);
+
+        if (!fs.existsSync(outEncVote)) {
             return res.status(500).json({ error: 'Ciphertext file not produced by encrypt_vote.' });
         }
-        const cipherBuf = fs.readFileSync(cipherPath);
+        const cipherBuf = fs.readFileSync(outEncVote);
         console.log(`[${VOTER_ID}] Ciphertext: ${cipherBuf.length} bytes`);
 
-        // ── 3. Send to tally server ──────────────────────────
+        // ── 3. Send to tally server with authentication ──────────────────
         console.log(`[${VOTER_ID}] Sending to ${SERVER_URL}/vote ...`);
-        const data = await postBinary(`${SERVER_URL}/vote`, cipherBuf, { 'voter-id': VOTER_ID });
+        const data = await postBinary(`${SERVER_URL}/vote`, cipherBuf, {
+            'Authorization': `Bearer ${authToken}`
+        });
 
         hasVoted = true;
         console.log(`[${VOTER_ID}] ✓ Vote sent. Server: ${data.message}`);
 
         res.json({
             status:  'ok',
-            message: `Your ${vote.toUpperCase()} vote was encrypted and sent.`,
+            message: `Your vote for candidate[${candidateIndex}] was encrypted and sent.`,
             server:  data,
         });
 
@@ -172,8 +316,10 @@ app.post('/vote', async (req, res) => {
 });
 
 // ── POST /partial-decrypt ─────────────────────────────────────
-// Browser triggers this after all votes are cast
 app.post('/partial-decrypt', async (req, res) => {
+    if (!isRegistered || !authToken) {
+        return res.status(400).json({ error: 'Client registration not completed yet.' });
+    }
     if (shareSubmitted) {
         return res.status(409).json({ error: 'Decryption share already submitted.' });
     }
@@ -190,17 +336,28 @@ app.post('/partial-decrypt', async (req, res) => {
 
         // ── 2. Produce partial decryption share ──────────────
         console.log(`[${VOTER_ID}] Running partial_decrypt ...`);
-        runBinary('partial_decrypt');
+        const inSk = path.join(KEYS_DIR, 'secret_key.bin');
+        const outShare = path.join(SHARES_DIR, 'my_share.bin');
+        const paramsFile = path.join(ROOT, 'params', 'crypto_params.bin');
+        
+        runBinary('voter_partial_decrypt', [
+            VOTER_ID,
+            isFirstVoter ? '1' : '0',
+            inSk,
+            tallyPath,
+            outShare,
+            paramsFile
+        ]);
 
-        // ── 3. Upload share to server ────────────────────────
-        const sharePath = path.join(SHARES_DIR, 'my_share.bin');
-        if (!fs.existsSync(sharePath)) {
-            return res.status(500).json({ error: 'Share file not produced by partial_decrypt.' });
+        if (!fs.existsSync(outShare)) {
+            return res.status(500).json({ error: 'Share file not produced by voter_partial_decrypt.' });
         }
-        const shareBuf = fs.readFileSync(sharePath);
+        const shareBuf = fs.readFileSync(outShare);
         console.log(`[${VOTER_ID}] Uploading share (${shareBuf.length} bytes) ...`);
 
-        const data = await postBinary(`${SERVER_URL}/share`, shareBuf, { 'voter-id': VOTER_ID });
+        const data = await postBinary(`${SERVER_URL}/share`, shareBuf, {
+            'Authorization': `Bearer ${authToken}`
+        });
         shareSubmitted = true;
 
         console.log(`[${VOTER_ID}] ✓ Share submitted. Server: ${data.message}`);

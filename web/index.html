@@ -3,235 +3,641 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>SecureVote — MK-FHE</title>
+  <title>Ballon d'Or — Secure E-Vote · MK-FHE</title>
+  <meta name="description" content="Privacy-Preserving Ballon d'Or E-Voting powered by Multi-Key Fully Homomorphic Encryption (OpenFHE BFV-RNS).">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@300;400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --bg:#050d1a;--surface:#0a1628;--surface2:#0f1f38;
-      --border:#1a3050;--border2:#243d5e;
-      --accent:#00e5ff;--accent2:#0099bb;
-      --yes:#00ff88;--yes2:#00cc6a;
-      --no:#ff3860;--no2:#cc1f45;
-      --text:#cdd9e8;--muted:#4a6080;--faint:#243040;
-      --mono:'Share Tech Mono',monospace;
-      --sans:'Syne',sans-serif;
+      --bg:#050d1a;--surface:#091525;--surface2:#0d1e30;
+      --border:#1a3050;--border2:#0f2240;
+      --accent:#00e5ff;--gold:#ffd600;--gold2:#ffb300;
+      --yes:#00ff88;--no:#ff3860;--purple:#b388ff;
+      --text:#cdd9e8;--muted:#4a6080;--faint:#0a1a2e;
+      --mono:'Share Tech Mono',monospace;--sans:'Outfit',sans-serif;
     }
-    html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
+    html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
 
-    /* grid bg */
+    /* ── Background grid ── */
     body::before{content:'';position:fixed;inset:0;
-      background-image:linear-gradient(rgba(0,229,255,.03)1px,transparent 1px),
-        linear-gradient(90deg,rgba(0,229,255,.03)1px,transparent 1px);
-      background-size:40px 40px;pointer-events:none;z-index:0}
-    body::after{content:'';position:fixed;width:700px;height:700px;border-radius:50%;
-      background:radial-gradient(circle,rgba(0,229,255,.05)0%,transparent 70%);
+      background-image:linear-gradient(rgba(0,229,255,.025)1px,transparent 1px),
+        linear-gradient(90deg,rgba(0,229,255,.025)1px,transparent 1px);
+      background-size:44px 44px;pointer-events:none;z-index:0}
+    body::after{content:'';position:fixed;width:900px;height:900px;border-radius:50%;
+      background:radial-gradient(circle,rgba(255,214,0,.05)0%,transparent 70%);
       top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
 
     .page{position:relative;z-index:1;min-height:100vh;display:flex;
-      flex-direction:column;align-items:center;justify-content:center;padding:40px 20px}
+      flex-direction:column;align-items:center;padding:40px 16px 80px}
 
-    /* ── header ── */
-    .header{text-align:center;margin-bottom:40px}
+    /* ── Page Header ── */
+    .header{text-align:center;margin-bottom:32px}
     .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
-      font-size:.68rem;letter-spacing:.15em;color:var(--accent);
-      border:1px solid rgba(0,229,255,.3);padding:5px 14px;border-radius:2px;margin-bottom:18px;
-      animation:pulseBorder 3s ease-in-out infinite}
-    @keyframes pulseBorder{0%,100%{border-color:rgba(0,229,255,.25)}50%{border-color:rgba(0,229,255,.7)}}
-    .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--yes);animation:blinkDot 1.4s infinite}
-    @keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.2}}
-    h1{font-size:clamp(1.8rem,4vw,2.9rem);font-weight:800;letter-spacing:-.02em;
-      color:#fff;line-height:1.1;margin-bottom:10px}
-    h1 span{color:var(--accent)}
-    .subtitle{font-family:var(--mono);font-size:.72rem;color:var(--muted);
-      letter-spacing:.04em;max-width:400px;margin:0 auto;line-height:1.8}
+      font-size:.62rem;letter-spacing:.16em;color:var(--gold);
+      border:1px solid rgba(255,214,0,.35);padding:5px 16px;border-radius:2px;
+      margin-bottom:18px;animation:pb 3s ease-in-out infinite}
+    @keyframes pb{0%,100%{border-color:rgba(255,214,0,.2)}50%{border-color:rgba(255,214,0,.7)}}
+    .bdot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1.4s infinite}
+    @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
+    h1{font-size:clamp(1.9rem,5vw,3rem);font-weight:800;color:#fff;
+      letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
+    h1 .hi{color:var(--gold)}
+    .sub{font-family:var(--mono);font-size:.7rem;color:var(--muted);line-height:2;max-width:460px;margin:0 auto}
 
-    /* ── card ── */
+    /* ── Main Card — wide enough for 5-column grid ── */
     .card{background:var(--surface);border:1px solid var(--border);
-      border-radius:4px;width:100%;max-width:480px;overflow:hidden;
-      box-shadow:0 0 60px rgba(0,229,255,.04)}
-    .card-bar{display:flex;align-items:center;gap:8px;padding:12px 18px;
-      border-bottom:1px solid var(--border);background:rgba(0,229,255,.03)}
+      border-radius:8px;width:100%;max-width:960px;overflow:visible;
+      box-shadow:0 0 120px rgba(255,214,0,.05);margin-bottom:16px}
+    .cbar{display:flex;align-items:center;gap:7px;padding:11px 18px;
+      border-bottom:1px solid var(--border);background:rgba(255,214,0,.02);
+      border-radius:8px 8px 0 0}
     .dot{width:9px;height:9px;border-radius:50%}
-    .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:var(--yes);animation:blinkDot 2s infinite}
-    .card-title-bar{font-family:var(--mono);font-size:.68rem;color:var(--muted);
-      margin-left:4px;letter-spacing:.07em}
-    .voter-tag{margin-left:auto;font-family:var(--mono);font-size:.65rem;
-      color:var(--accent);letter-spacing:.08em}
-    .card-body{padding:28px 26px}
+    .dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:var(--yes);animation:blink 2s infinite}
+    .ctitle{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:4px;letter-spacing:.07em}
+    .voter-tag{margin-left:auto;font-family:var(--mono);font-size:.65rem;color:var(--gold);letter-spacing:.08em}
+    .cbody{padding:28px 28px 24px}
 
-    /* ── enc strip ── */
+    /* ── Enc strip ── */
     .enc-strip{display:flex;align-items:center;gap:10px;
       background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15);
-      border-radius:3px;padding:11px 15px;margin-bottom:26px}
-    .enc-ico{font-size:1.1rem;flex-shrink:0}
-    .enc-txt{font-family:var(--mono);font-size:.67rem;color:var(--yes);
-      letter-spacing:.03em;line-height:1.6}
+      border-radius:3px;padding:10px 14px;margin-bottom:24px;
+      font-family:var(--mono);font-size:.67rem;color:var(--yes);letter-spacing:.03em;line-height:1.6}
 
-    /* ── question ── */
-    .q-wrap{text-align:center;margin-bottom:24px}
-    .q-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
-      letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
-    .q-text{font-size:1.25rem;font-weight:700;color:#fff}
+    /* ── Section label ── */
+    .section-label{font-family:var(--mono);font-size:.6rem;color:var(--muted);
+      letter-spacing:.16em;text-transform:uppercase;margin-bottom:14px;
+      display:flex;align-items:center;gap:8px}
+    .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
 
-    /* ── voted badge ── */
-    .voted-badge{display:none;align-items:center;justify-content:center;gap:8px;
-      padding:12px;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);
-      border-radius:3px;margin-bottom:18px;font-family:var(--mono);
-      font-size:.72rem;color:var(--yes);letter-spacing:.06em}
-    .voted-badge.show{display:flex}
+    /* ── Progress bar ── */
+    .prog-wrap{margin-bottom:16px}
+    .prog-label{display:flex;justify-content:space-between;
+      font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-bottom:6px}
+    .prog-bar{height:3px;background:var(--faint);border-radius:2px;overflow:hidden}
+    .prog-fill{height:100%;border-radius:2px;transition:width .6s ease;width:0%}
+    .fill-gold{background:linear-gradient(90deg,var(--gold2),var(--gold))}
 
-    /* ── vote buttons ── */
-    .vote-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
-    .vote-btn{position:relative;padding:22px 14px;border:2px solid;border-radius:4px;
-      background:transparent;cursor:pointer;font-family:var(--sans);font-weight:700;
-      font-size:1.05rem;letter-spacing:.06em;transition:all .17s ease;overflow:hidden}
-    .vote-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s}
-    .vote-btn:hover:not(:disabled)::before{opacity:1}
-    .vote-btn:active:not(:disabled){transform:scale(.97)}
-    .vote-btn:disabled{opacity:.28;cursor:not-allowed;transform:none!important}
-    .btn-yes{border-color:var(--yes);color:var(--yes)}
-    .btn-yes::before{background:rgba(0,255,136,.07)}
-    .btn-yes:hover:not(:disabled){box-shadow:0 0 24px rgba(0,255,136,.18)}
-    .btn-no{border-color:var(--no);color:var(--no)}
-    .btn-no::before{background:rgba(255,56,96,.07)}
-    .btn-no:hover:not(:disabled){box-shadow:0 0 24px rgba(255,56,96,.18)}
-    .btn-icon{display:block;font-size:1.6rem;margin-bottom:3px}
-
-    /* ── divider ── */
-    .divider{height:1px;background:var(--border);margin:22px 0;position:relative}
-    .divider::after{content:'DECRYPTION PHASE';position:absolute;top:50%;left:50%;
+    /* ── Decrypt section ── */
+    .divider{height:1px;background:var(--border);margin:24px 0;position:relative}
+    .divider::after{content:attr(data-label);position:absolute;top:50%;left:50%;
       transform:translate(-50%,-50%);background:var(--surface);padding:0 10px;
-      font-family:var(--mono);font-size:.58rem;color:var(--muted);letter-spacing:.14em}
-
-    /* ── decrypt section ── */
+      font-family:var(--mono);font-size:.57rem;color:var(--muted);letter-spacing:.12em}
     .decrypt-hint{font-family:var(--mono);font-size:.67rem;color:var(--muted);
-      margin-bottom:13px;line-height:1.7;text-align:center}
-    .btn-decrypt{width:100%;padding:14px;background:transparent;
+      margin-bottom:12px;line-height:1.7;text-align:center}
+    #btnDecrypt{width:100%;padding:14px;background:transparent;
       border:1px solid rgba(0,229,255,.35);border-radius:4px;color:var(--accent);
       font-family:var(--mono);font-size:.78rem;letter-spacing:.09em;
       cursor:pointer;transition:all .18s}
-    .btn-decrypt:hover:not(:disabled){background:rgba(0,229,255,.05);
+    #btnDecrypt:hover:not(:disabled){background:rgba(0,229,255,.05);
       border-color:var(--accent);box-shadow:0 0 24px rgba(0,229,255,.1)}
-    .btn-decrypt:disabled{opacity:.28;cursor:not-allowed}
+    #btnDecrypt:disabled{opacity:.28;cursor:not-allowed}
 
-    /* ── progress bar (election status) ── */
-    .progress-wrap{margin-top:22px}
-    .progress-label{display:flex;justify-content:space-between;
-      font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-bottom:6px}
-    .progress-bar{height:3px;background:var(--faint);border-radius:2px;overflow:hidden}
-    .progress-fill{height:100%;background:var(--accent);border-radius:2px;
-      transition:width .6s ease;width:0%}
-
-    /* ── result box ── */
-    .result-box{display:none;margin-top:22px;padding:18px;
-      background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.25);
-      border-radius:4px;text-align:center}
+    /* ── Result box ── */
+    .result-box{display:none;margin-top:20px;padding:20px;
+      background:rgba(255,214,0,.04);border:1px solid rgba(255,214,0,.25);
+      border-radius:6px}
     .result-box.show{display:block}
-    .result-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
-      letter-spacing:.12em;margin-bottom:8px}
-    .result-value{font-size:2rem;font-weight:800;color:var(--accent)}
+    .result-title{font-family:var(--mono);font-size:.6rem;color:var(--muted);
+      letter-spacing:.14em;margin-bottom:16px;text-align:center}
 
-    /* ── log ── */
-    #log{margin-top:22px;font-family:var(--mono);font-size:.69rem;
-      line-height:1.85;max-height:150px;overflow-y:auto}
+    /* ── Log ── */
+    #log{margin-top:20px;font-family:var(--mono);font-size:.64rem;
+      line-height:1.85;max-height:130px;overflow-y:auto}
     #log::-webkit-scrollbar{width:3px}
-    #log::-webkit-scrollbar-thumb{background:var(--border2)}
+    #log::-webkit-scrollbar-thumb{background:var(--border)}
     .log-entry{display:flex;gap:10px;padding:3px 0;
-      border-bottom:1px solid rgba(255,255,255,.03);
-      animation:fadeUp .22s ease}
-    @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+      border-bottom:1px solid rgba(255,255,255,.03);animation:fu .2s ease}
+    @keyframes fu{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
     .log-ts{color:var(--muted);flex-shrink:0;min-width:62px}
     .log-ok{color:var(--yes)}.log-err{color:var(--no)}
-    .log-info{color:var(--accent)}.log-warn{color:#ffd600}
+    .log-info{color:var(--accent)}.log-warn{color:var(--gold)}
 
-    /* ── footer ── */
-    .footer{margin-top:28px;font-family:var(--mono);font-size:.62rem;
-      color:var(--muted);text-align:center;letter-spacing:.07em;line-height:2.2}
+    /* ── Footer ── */
+    .footer{margin-top:28px;font-family:var(--mono);font-size:.58rem;
+      color:var(--muted);text-align:center;letter-spacing:.07em;line-height:2.5}
+
+    /* ════════════════════════════════════════════
+       BALLON D'OR VOTING UI
+       ════════════════════════════════════════════ */
+
+    /* Ballon d'Or section header */
+    .ballon-header {
+      text-align: center;
+      margin-bottom: 28px;
+      padding: 22px 20px;
+      background: linear-gradient(135deg, rgba(255,193,7,0.08), rgba(0,229,255,0.05));
+      border: 1px solid rgba(255,193,7,0.25);
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+    .ballon-header::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(ellipse at 50% 0%, rgba(255,193,7,0.06) 0%, transparent 70%);
+      pointer-events: none;
+    }
+    .ballon-trophy {
+      font-size: 3.2rem;
+      margin-bottom: 10px;
+      display: block;
+      filter: drop-shadow(0 0 16px rgba(255,193,7,0.6));
+      animation: trophy-glow 3s ease-in-out infinite;
+    }
+    @keyframes trophy-glow {
+      0%,100% { filter: drop-shadow(0 0 12px rgba(255,193,7,0.4)); }
+      50%      { filter: drop-shadow(0 0 28px rgba(255,193,7,0.9)); }
+    }
+    .ballon-title {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.7rem;
+      color: #ffc107;
+      letter-spacing: 5px;
+      margin: 0 0 6px;
+      text-shadow: 0 0 24px rgba(255,193,7,0.5);
+    }
+    .ballon-subtitle {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.68rem;
+      color: #4a7fa5;
+      letter-spacing: 2px;
+      margin: 0 0 12px;
+    }
+    .ballon-lock-badge {
+      display: inline-block;
+      background: rgba(0,229,255,0.08);
+      border: 1px solid rgba(0,229,255,0.3);
+      color: #00e5ff;
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.63rem;
+      padding: 4px 14px;
+      border-radius: 20px;
+      letter-spacing: 2px;
+    }
+
+    /* Candidate Grid: 5 columns × 2 rows */
+    .candidate-grid {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    @media (max-width: 700px) {
+      .candidate-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    }
+    @media (max-width: 460px) {
+      .candidate-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+    }
+
+    /* Candidate Card */
+    .candidate-card {
+      position: relative;
+      background: rgba(9, 21, 37, 0.95);
+      border: 1px solid #1a3050;
+      border-radius: 10px;
+      overflow: hidden;
+      cursor: pointer;
+      transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+      user-select: none;
+    }
+    .candidate-card:hover {
+      border-color: rgba(255,193,7,0.55);
+      transform: translateY(-4px);
+      box-shadow: 0 10px 28px rgba(255,193,7,0.18);
+    }
+    .candidate-card.selected {
+      border-color: #ffc107;
+      box-shadow: 0 0 24px rgba(255,193,7,0.4), inset 0 0 24px rgba(255,193,7,0.06);
+    }
+    /* Gold checkmark on selected card */
+    .candidate-card.selected::after {
+      content: '✓';
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      width: 22px;
+      height: 22px;
+      background: #ffc107;
+      color: #050d1a;
+      border-radius: 50%;
+      font-size: 0.72rem;
+      font-weight: 900;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+      box-shadow: 0 0 10px rgba(255,193,7,0.6);
+    }
+    /* Dim all cards after voting, keep selected bright */
+    .candidate-card.voted-lock {
+      opacity: 0.4;
+      cursor: not-allowed;
+      pointer-events: none;
+      transform: none !important;
+    }
+    .candidate-card.voted-lock.selected {
+      opacity: 1;
+    }
+
+    /* Player photo */
+    .candidate-photo-wrap {
+      width: 100%;
+      aspect-ratio: 3 / 4;
+      overflow: hidden;
+      background: #0d1f35;
+      position: relative;
+    }
+    .candidate-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top center;
+      display: block;
+      transition: transform 0.3s ease;
+    }
+    .candidate-card:hover .candidate-photo { transform: scale(1.05); }
+
+    /* Fallback initials — pure CSS, shown when image fails */
+    .candidate-photo-fallback {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 2.2rem;
+      font-weight: 800;
+      color: #4a7fa5;
+      background: linear-gradient(160deg, #0a1628 0%, #0d1e30 100%);
+      letter-spacing: 2px;
+    }
+
+    /* Player info block */
+    .candidate-info {
+      padding: 8px 9px 10px;
+      border-top: 1px solid rgba(26,48,80,0.8);
+      background: rgba(5,13,26,0.6);
+    }
+    .candidate-number {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.52rem;
+      color: #ffc107;
+      letter-spacing: 1px;
+      margin-bottom: 2px;
+      opacity: 0.65;
+    }
+    .candidate-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.72rem;
+      color: #e8f0f8;
+      font-weight: 700;
+      margin-bottom: 2px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .candidate-club {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem;
+      color: #4a7fa5;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .candidate-nationality {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.52rem;
+      color: #2a5070;
+      margin-top: 1px;
+    }
+
+    /* Selected candidate preview bar */
+    .selected-preview {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      background: rgba(255,193,7,0.06);
+      border: 1px solid rgba(255,193,7,0.3);
+      border-radius: 8px;
+      padding: 12px 18px;
+      margin-bottom: 14px;
+      animation: slide-in 0.25s ease;
+    }
+    @keyframes slide-in {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: none; }
+    }
+    .preview-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: #4a7fa5;
+      letter-spacing: 2px;
+      white-space: nowrap;
+    }
+    .preview-img {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      object-fit: cover;
+      object-position: top;
+      border: 2px solid #ffc107;
+      flex-shrink: 0;
+    }
+    .preview-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 1rem;
+      color: #ffc107;
+      font-weight: 700;
+    }
+    .preview-club {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: #4a7fa5;
+      margin-left: auto;
+    }
+
+    /* Confirm vote button */
+    .confirm-vote-btn {
+      width: 100%;
+      padding: 16px;
+      background: linear-gradient(135deg, rgba(255,193,7,0.14), rgba(255,193,7,0.04));
+      border: 1px solid #ffc107;
+      border-radius: 8px;
+      color: #ffc107;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 4px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      margin-bottom: 14px;
+      text-shadow: 0 0 12px rgba(255,193,7,0.4);
+    }
+    .confirm-vote-btn:hover {
+      background: rgba(255,193,7,0.2);
+      box-shadow: 0 0 30px rgba(255,193,7,0.3);
+      transform: translateY(-1px);
+    }
+    .confirm-vote-btn:disabled {
+      opacity: 0.35;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    /* Voted badge */
+    .voted-badge {
+      text-align: center;
+      padding: 16px;
+      background: rgba(0,255,136,0.05);
+      border: 1px solid rgba(0,255,136,0.28);
+      border-radius: 8px;
+      font-family: 'Share Tech Mono', monospace;
+      color: #00ff88;
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      animation: slide-in 0.3s ease;
+    }
+
+    /* Votes-cast progress bar (inside section) */
+    .progress-wrap {
+      margin: 14px 0 6px;
+    }
+    .progress-label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: #4a7fa5;
+      margin-bottom: 6px;
+      display: flex;
+      justify-content: space-between;
+    }
+    .progress-bar-bg {
+      width: 100%;
+      height: 3px;
+      background: #0d1e30;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #00b4d8, #00e5ff);
+      border-radius: 2px;
+      transition: width 0.55s ease;
+      width: 0%;
+    }
+
+    /* Leaderboard (results) */
+    .leaderboard { margin-top: 4px; }
+    .leaderboard-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 14px;
+      margin-bottom: 8px;
+      background: rgba(9,21,37,0.8);
+      border: 1px solid #1a3050;
+      border-radius: 8px;
+      transition: border-color 0.2s;
+      animation: slide-in 0.35s ease both;
+    }
+    .leaderboard-row.rank-1 { border-color: #ffc107; background: rgba(255,193,7,0.06); }
+    .leaderboard-row.rank-2 { border-color: #9e9e9e; background: rgba(158,158,158,0.04); }
+    .leaderboard-row.rank-3 { border-color: #cd7f32; background: rgba(205,127,50,0.04); }
+    .leaderboard-rank {
+      font-family: 'Syne', sans-serif;
+      font-size: 1.2rem;
+      font-weight: 700;
+      width: 32px;
+      text-align: center;
+      flex-shrink: 0;
+      color: #4a7fa5;
+    }
+    .leaderboard-row.rank-1 .leaderboard-rank { color: #ffc107; }
+    .leaderboard-row.rank-2 .leaderboard-rank { color: #c0c0c0; }
+    .leaderboard-row.rank-3 .leaderboard-rank { color: #cd7f32; }
+    .lb-photo-wrap {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+      border: 2px solid #1a3050;
+      background: #0d1e30;
+    }
+    .leaderboard-row.rank-1 .lb-photo-wrap { border-color: #ffc107; }
+    .leaderboard-row.rank-2 .lb-photo-wrap { border-color: #c0c0c0; }
+    .leaderboard-row.rank-3 .lb-photo-wrap { border-color: #cd7f32; }
+    .leaderboard-photo {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      object-position: top;
+      display: block;
+    }
+    .lb-photo-fallback {
+      display: none;
+      position: absolute;
+      inset: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Syne', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: #4a7fa5;
+      background: #0a1628;
+    }
+    .leaderboard-name {
+      font-family: 'Syne', sans-serif;
+      font-size: 0.88rem;
+      color: #e8f0f8;
+      font-weight: 600;
+      flex: 1;
+      min-width: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .leaderboard-club {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.58rem;
+      color: #4a7fa5;
+      white-space: nowrap;
+    }
+    .leaderboard-votes {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      color: #00e5ff;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .leaderboard-row.rank-1 .leaderboard-votes { color: #ffc107; }
+    .leaderboard-bar-wrap {
+      width: 80px;
+      height: 4px;
+      background: #1a3050;
+      border-radius: 2px;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+    .leaderboard-bar {
+      height: 100%;
+      background: #00e5ff;
+      border-radius: 2px;
+      transition: width 0.9s ease;
+    }
+    .leaderboard-row.rank-1 .leaderboard-bar { background: #ffc107; }
+    .leaderboard-row.rank-2 .leaderboard-bar { background: #c0c0c0; }
+    .leaderboard-row.rank-3 .leaderboard-bar { background: #cd7f32; }
+
+    /* Result box title */
+    .result-title {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.62rem;
+      color: var(--muted);
+      letter-spacing: .14em;
+      margin-bottom: 16px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
 <div class="page">
+
+  <!-- ── Page Header ── -->
   <div class="header">
-    <div class="badge"><span class="badge-dot"></span>MK-FHE SECURE VOTING DEMO</div>
-    <h1>Privacy<span>-</span>Preserving<br>E-Vote</h1>
-    <p class="subtitle">
-      Your vote is encrypted locally before transmission.<br>
-      The server only handles ciphertext — never plaintext.
-    </p>
+    <div class="badge"><span class="bdot"></span>BALLON D'OR · MK-FHE · PRIVACY-PRESERVING</div>
+    <h1>Ballon <span class="hi">d'Or</span><br>Secure E-Vote</h1>
+    <p class="sub">Your ballot is encrypted locally · Server sees only ciphertext<br>
+      Threshold decryption requires <em>all</em> voters to reveal the tally</p>
   </div>
 
+  <!-- ── Main Card ── -->
   <div class="card">
-    <div class="card-bar">
-      <div class="dot dot-r"></div>
-      <div class="dot dot-y"></div>
-      <div class="dot dot-g"></div>
-      <span class="card-title-bar">secure-evote / ballot</span>
+    <div class="cbar">
+      <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
+      <span class="ctitle" id="cardTitle">secure-evote / ballot</span>
       <span class="voter-tag" id="voterTag">VOTER</span>
     </div>
+    <div class="cbody">
 
-    <div class="card-body">
-      <!-- Enc indicator -->
+      <!-- Encryption indicator -->
       <div class="enc-strip">
-        <span class="enc-ico">🔐</span>
-        <div class="enc-txt">END-TO-END ENCRYPTED · BFV-RNS · MULTIPARTY FHE · OpenFHE</div>
+        🔐 END-TO-END ENCRYPTED · BFV-RNS · MULTIPARTY FHE · OpenFHE 1.5.0
       </div>
 
-      <!-- Question -->
-      <div class="q-wrap">
-        <div class="q-label">Ballot Question</div>
-        <div class="q-text">Do you approve this proposal?</div>
-      </div>
+      <!-- ══ BALLON D'OR VOTING SECTION ══ -->
+      <div id="ballonDorSection" style="display:none">
 
-      <!-- Voted confirmation -->
-      <div class="voted-badge" id="votedBadge">
-        <span>✓</span><span>VOTE ENCRYPTED &amp; TRANSMITTED TO SERVER</span>
-      </div>
-
-      <!-- Vote buttons -->
-      <div class="vote-row">
-        <button class="vote-btn btn-yes" id="btnYes" onclick="castVote('yes')">
-          <span class="btn-icon">✓</span>YES
-        </button>
-        <button class="vote-btn btn-no" id="btnNo" onclick="castVote('no')">
-          <span class="btn-icon">✗</span>NO
-        </button>
-      </div>
-
-      <!-- Election progress -->
-      <div class="progress-wrap">
-        <div class="progress-label">
-          <span>VOTES RECEIVED</span>
-          <span id="progressText">0 / 3</span>
+        <!-- Trophy Header -->
+        <div class="ballon-header">
+          <span class="ballon-trophy">🏆</span>
+          <h2 class="ballon-title">BALLON D'OR 2024</h2>
+          <p class="ballon-subtitle">SELECT YOUR CANDIDATE — VOTE IS ENCRYPTED END-TO-END</p>
+          <div class="ballon-lock-badge">🔒 MK-FHE PROTECTED</div>
         </div>
-        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      </div>
 
-      <!-- Phase 2 -->
-      <div class="divider"></div>
+        <!-- Candidate Grid: 5 columns × 2 rows — populated by vote.js -->
+        <div id="candidateGrid" class="candidate-grid"></div>
+
+        <!-- Selected candidate preview bar (hidden until selection) -->
+        <div id="selectedPreview" class="selected-preview" style="display:none">
+          <span class="preview-label">YOUR SELECTION:</span>
+          <img id="previewImg" class="preview-img" src="" alt="">
+          <span id="previewName" class="preview-name"></span>
+          <span id="previewClub" class="preview-club"></span>
+        </div>
+
+        <!-- Confirm & Encrypt button -->
+        <button id="confirmVoteBtn" class="confirm-vote-btn"
+                style="display:none" onclick="confirmAndVote()">
+          🔐 CONFIRM &amp; ENCRYPT VOTE
+        </button>
+
+        <!-- Post-vote success badge -->
+        <div id="votedBadge" class="voted-badge" style="display:none">
+          ✅ YOUR ENCRYPTED VOTE HAS BEEN SUBMITTED
+        </div>
+
+        <!-- Votes-cast progress bar -->
+        <div class="progress-wrap" id="progressWrap" style="display:none">
+          <div class="progress-label">
+            <span>VOTES CAST</span>
+            <span id="progressText">0 / 0</span>
+          </div>
+          <div class="progress-bar-bg">
+            <div class="progress-bar-fill" id="progressFill"></div>
+          </div>
+        </div>
+
+      </div>
+      <!-- ══ END BALLON D'OR SECTION ══ -->
+
+      <!-- ── Decryption Phase ── -->
+      <div class="divider" data-label="DECRYPTION PHASE"></div>
       <p class="decrypt-hint">
         After ALL voters have cast ballots, each voter must<br>
         contribute their key share to reveal the final tally.
       </p>
-      <button class="btn-decrypt" id="btnDecrypt" onclick="partialDecrypt()">
-        [ SUBMIT DECRYPTION SHARE ]
-      </button>
+      <button id="btnDecrypt" onclick="partialDecrypt()" disabled>[ SUBMIT DECRYPTION SHARE ]</button>
 
-      <!-- Result -->
+      <!-- ── Final Results ── -->
       <div class="result-box" id="resultBox">
-        <div class="result-label">FINAL YES VOTES</div>
-        <div class="result-value" id="resultValue">—</div>
+        <div class="result-title">🏆 BALLON D'OR — FINAL VOTE TALLY</div>
+        <div id="leaderboardContainer"></div>
       </div>
 
-      <!-- Log -->
+      <!-- ── Activity Log ── -->
       <div id="log"></div>
     </div>
   </div>
 
   <div class="footer">
-    <div>Privacy-Preserving E-Voting · Graduation Project</div>
-    <div>Multi-Key FHE · OpenFHE · C++17 · Node.js</div>
+    <div>Privacy-Preserving Ballon d'Or E-Voting · Graduation Project</div>
+    <div>Multi-Key FHE · OpenFHE 1.5.0 · C++17 · Node.js</div>
+    <div style="color:#1a3050;margin-top:4px">threshold decryption · no single point of trust</div>
   </div>
 </div>
 <script src="vote.js"></script>

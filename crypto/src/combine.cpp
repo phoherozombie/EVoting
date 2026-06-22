@@ -2,6 +2,15 @@
 // Reads all share_*.bin from server/data/shares/
 // Calls MultipartyDecryptFusion → writes final_result.txt
 //
+// Multi-candidate output: one line per slot/candidate:
+//   CANDIDATE_0:<votes>
+//   CANDIDATE_1:<votes>
+//   ...
+//   CANDIDATE_N-1:<votes>
+//
+// combine.cpp does not need to know candidate names — only slot indices.
+// The server (server.js) maps indices back to names when serving results.
+//
 // Paths relative to ROOT = evoting-system/
 
 #include <openfhe.h>
@@ -16,6 +25,9 @@
 
 using namespace lbcrypto;
 namespace fs = std::filesystem;
+
+// Must match N_CANDIDATES in encrypt_vote.cpp
+static const int N_CANDIDATES = 10;
 
 int main() {
     std::cout << "\n[combine] Loading CryptoContext...\n";
@@ -50,24 +62,42 @@ int main() {
         std::cout << "[combine]   Loaded share: " << fp.filename() << "\n";
     }
 
+    // ── Multiparty fusion → plaintext ─────────────────────────
     Plaintext result;
     cc->MultipartyDecryptFusion(shares, &result);
-    result->SetLength(1);
-    int64_t finalTally = result->GetPackedValue()[0];
 
-    std::cout << "\n╔═══════════════════════════════════╗\n";
-    std::cout << "║         FINAL VOTE RESULT         ║\n";
-    std::cout << "╠═══════════════════════════════════╣\n";
-    std::cout << "║   TOTAL YES VOTES = " << finalTally
-              << std::string(16 - std::to_string(finalTally).size(), ' ') << "║\n";
-    std::cout << "╚═══════════════════════════════════╝\n\n";
+    // Read all N_CANDIDATES slots
+    result->SetLength(N_CANDIDATES);
+    auto tallies = result->GetPackedValue();
 
+    // ── Print results table ───────────────────────────────────
+    std::cout << "\n╔═══════════════════════════════════════════╗\n";
+    std::cout << "║       BALLON D'OR — FINAL VOTE TALLY      ║\n";
+    std::cout << "╠═══════════════════════════════════════════╣\n";
+    for (int i = 0; i < N_CANDIDATES; ++i) {
+        int64_t v = (i < (int)tallies.size()) ? tallies[i] : 0;
+        std::string label = "  CANDIDATE_" + std::to_string(i) + " = " + std::to_string(v);
+        // Pad to fixed width
+        std::string padded = label + std::string(std::max(0, 43 - (int)label.size()), ' ');
+        std::cout << "║" << padded << "║\n";
+    }
+    std::cout << "╚═══════════════════════════════════════════╝\n\n";
+
+    // ── Write final_result.txt ─────────────────────────────────
+    // Format:  CANDIDATE_<i>:<votes>
+    // One line per candidate, sorted by index ascending.
+    // Server will parse this and join with candidates.json for names.
     fs::create_directories("./server/data/tally");
     std::ofstream out("./server/data/tally/final_result.txt");
-    if (out.is_open()) {
-        out << "FINAL YES VOTES = " << finalTally << "\n";
-        out.close();
+    if (!out.is_open()) {
+        std::cerr << "[combine] ERROR: Cannot open final_result.txt for writing\n"; return 1;
     }
-    std::cout << "[combine] ✓ Done.\n\n";
+    for (int i = 0; i < N_CANDIDATES; ++i) {
+        int64_t v = (i < (int)tallies.size()) ? tallies[i] : 0;
+        out << "CANDIDATE_" << i << ":" << v << "\n";
+    }
+    out.close();
+
+    std::cout << "[combine] ✓ Done. Results written to server/data/tally/final_result.txt\n\n";
     return 0;
 }

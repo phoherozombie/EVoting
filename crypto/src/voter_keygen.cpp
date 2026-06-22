@@ -1,13 +1,9 @@
 // voter_keygen.cpp
-// Usage: voter_keygen <voter_id>
+// Usage: voter_keygen <voter_id> <isFirst> <in_joint_pk> <out_sk> <out_pk> <params_file>
 //
-// Registers one voter:
+// Registers one voter on the client:
 //   - Generates (pk_i, sk_i) using KeyGen() or MultipartyKeyGen(joint_pk)
-//   - Writes server/data/keys/pk_<id>.bin  and  sk_<id>.bin
-//   - Updates server/data/keys/joint_pk.bin  (the running joint public key)
-//   - Appends voter_id to  server/data/keys/voter_list.txt
-//
-// Paths are relative to ROOT = evoting-system/ (binary is run with cwd=ROOT)
+//   - Writes <out_sk> and <out_pk>
 
 #include <openfhe.h>
 #include <cryptocontext-ser.h>
@@ -17,67 +13,46 @@
 #include <fstream>
 #include <filesystem>
 #include <string>
-#include <vector>
-#include <algorithm>
 
 using namespace lbcrypto;
 namespace fs = std::filesystem;
 
-static const std::string KEYS_DIR    = "./server/data/keys";
-static const std::string PARAMS_FILE = "./params/crypto_params.bin";
-static const std::string JOINT_PK    = "./server/data/keys/joint_pk.bin";
-static const std::string VOTER_LIST  = "./server/data/keys/voter_list.txt";
-
-// Load existing voter IDs
-static std::vector<std::string> loadVoterList() {
-    std::vector<std::string> ids;
-    std::ifstream f(VOTER_LIST);
-    std::string line;
-    while (std::getline(f, line))
-        if (!line.empty()) ids.push_back(line);
-    return ids;
-}
-
 int main(int argc, char* argv[]) {
-    if (argc < 2) {
-        std::cerr << "Usage: voter_keygen <voter_id>\n";
+    if (argc < 7) {
+        std::cerr << "Usage: voter_keygen <voter_id> <isFirst> <in_joint_pk> <out_sk> <out_pk> <params_file>\n";
         return 1;
     }
     const std::string voterId(argv[1]);
-    std::cout << "\n[voter_keygen] Registering voter: " << voterId << "\n";
+    const int isFirst = std::stoi(argv[2]);
+    const std::string inJointPk(argv[3]);
+    const std::string outSk(argv[4]);
+    const std::string outPk(argv[5]);
+    const std::string paramsFile(argv[6]);
 
-    // ── Sanity: no duplicate ──────────────────────────────────
-    auto existing = loadVoterList();
-    if (std::find(existing.begin(), existing.end(), voterId) != existing.end()) {
-        std::cerr << "[voter_keygen] ERROR: Voter '" << voterId << "' already registered.\n";
-        return 1;
-    }
+    std::cout << "\n[voter_keygen] Voter: " << voterId << "\n";
 
-    // ── Load CryptoContext ────────────────────────────────────
     CryptoContext<DCRTPoly> cc;
-    if (!Serial::DeserializeFromFile(PARAMS_FILE, cc, SerType::BINARY)) {
-        std::cerr << "[voter_keygen] ERROR: Cannot load crypto_params.bin\n";
+    if (!Serial::DeserializeFromFile(paramsFile, cc, SerType::BINARY)) {
+        std::cerr << "[voter_keygen] ERROR: Cannot load " << paramsFile << "\n";
         return 1;
     }
     cc->Enable(PKE);
     cc->Enable(LEVELEDSHE);
     cc->Enable(MULTIPARTY);
 
-    fs::create_directories(KEYS_DIR);
+    fs::create_directories(fs::path(outSk).parent_path());
+    fs::create_directories(fs::path(outPk).parent_path());
 
     KeyPair<DCRTPoly> kp;
 
-    if (existing.empty()) {
-        // ── First voter: standard KeyGen ─────────────────────
+    if (isFirst == 1) {
         std::cout << "[voter_keygen] First voter — using KeyGen()\n";
         kp = cc->KeyGen();
     } else {
-        // ── Subsequent voters: MultipartyKeyGen(joint_pk) ────
-        std::cout << "[voter_keygen] Voter #" << (existing.size() + 1)
-                  << " — using MultipartyKeyGen(joint_pk)\n";
+        std::cout << "[voter_keygen] Subsequent voter — using MultipartyKeyGen(joint_pk)\n";
         PublicKey<DCRTPoly> jointPk;
-        if (!Serial::DeserializeFromFile(JOINT_PK, jointPk, SerType::BINARY)) {
-            std::cerr << "[voter_keygen] ERROR: Cannot load joint_pk.bin\n";
+        if (!Serial::DeserializeFromFile(inJointPk, jointPk, SerType::BINARY)) {
+            std::cerr << "[voter_keygen] ERROR: Cannot load " << inJointPk << "\n";
             return 1;
         }
         kp = cc->MultipartyKeyGen(jointPk);
@@ -88,36 +63,17 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // ── Save individual keys ──────────────────────────────────
-    const std::string pkFile = KEYS_DIR + "/pk_" + voterId + ".bin";
-    const std::string skFile = KEYS_DIR + "/sk_" + voterId + ".bin";
-
-    if (!Serial::SerializeToFile(pkFile, kp.publicKey, SerType::BINARY)) {
-        std::cerr << "[voter_keygen] ERROR: Cannot write " << pkFile << "\n";
+    if (!Serial::SerializeToFile(outPk, kp.publicKey, SerType::BINARY)) {
+        std::cerr << "[voter_keygen] ERROR: Cannot write " << outPk << "\n";
         return 1;
     }
-    if (!Serial::SerializeToFile(skFile, kp.secretKey, SerType::BINARY)) {
-        std::cerr << "[voter_keygen] ERROR: Cannot write " << skFile << "\n";
+    if (!Serial::SerializeToFile(outSk, kp.secretKey, SerType::BINARY)) {
+        std::cerr << "[voter_keygen] ERROR: Cannot write " << outSk << "\n";
         return 1;
     }
-    std::cout << "[voter_keygen] Saved → " << pkFile << "\n";
-    std::cout << "[voter_keygen] Saved → " << skFile << "\n";
 
-    // ── Update joint public key ───────────────────────────────
-    // After MultipartyKeyGen, kp.publicKey IS the new joint public key
-    if (!Serial::SerializeToFile(JOINT_PK, kp.publicKey, SerType::BINARY)) {
-        std::cerr << "[voter_keygen] ERROR: Cannot write joint_pk.bin\n";
-        return 1;
-    }
-    std::cout << "[voter_keygen] Updated → joint_pk.bin (joint key now includes "
-              << (existing.size() + 1) << " voter(s))\n";
-
-    // ── Append voter to list ──────────────────────────────────
-    std::ofstream listFile(VOTER_LIST, std::ios::app);
-    listFile << voterId << "\n";
-    listFile.close();
-
-    std::cout << "[voter_keygen] ✓ Done. Total registered: "
-              << (existing.size() + 1) << "\n\n";
+    std::cout << "[voter_keygen] Saved SK -> " << outSk << "\n";
+    std::cout << "[voter_keygen] Saved PK -> " << outPk << "\n";
+    std::cout << "[voter_keygen] ✓ Done.\n\n";
     return 0;
 }
