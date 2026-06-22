@@ -3,250 +3,327 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ballon d'Or — Secure E-Vote · MK-FHE</title>
-  <meta name="description" content="Privacy-Preserving Ballon d'Or E-Voting powered by Multi-Key Fully Homomorphic Encryption (OpenFHE BFV-RNS).">
+  <title>Ballon d'Or — Official Ballot</title>
+  <meta name="description" content="The official Ballon d'Or electronic ballot. Your vote is encrypted end-to-end using Multi-Key Fully Homomorphic Encryption.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Outfit:wght@300;400;600;700;800&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
-    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --bg:#050d1a;--surface:#091525;--surface2:#0d1e30;
-      --border:#1a3050;--border2:#0f2240;
-      --accent:#00e5ff;--gold:#ffd600;--gold2:#ffb300;
-      --yes:#00ff88;--no:#ff3860;--purple:#b388ff;
-      --text:#cdd9e8;--muted:#4a6080;--faint:#0a1a2e;
-      --mono:'Share Tech Mono',monospace;--sans:'Outfit',sans-serif;
+    /* ─────────────────────────────────────────────
+       DESIGN TOKENS
+    ───────────────────────────────────────────── */
+    :root {
+      /* Backgrounds */
+      --bg:        #0e0e0e;
+      --surface:   #161616;
+      --surface-2: #1c1c1c;
+      --surface-3: #222222;
+
+      /* Borders */
+      --border:    #2a2a2a;
+      --border-2:  #333333;
+
+      /* Typography */
+      --text-primary:   #f5f5f5;
+      --text-secondary: #999999;
+      --text-muted:     #555555;
+
+      /* Brand */
+      --gold:       #c9a84c;
+      --gold-light: #e5c97a;
+      --gold-dark:  #a07830;
+      --gold-bg:    rgba(201,168,76,0.07);
+      --gold-border:rgba(201,168,76,0.20);
+
+      /* Status */
+      --success:    #4caf82;
+      --success-bg: rgba(76,175,130,0.08);
+      --error:      #e05252;
+
+      /* Medals */
+      --silver:     #9e9e9e;
+      --bronze:     #b87333;
+
+      /* Fonts */
+      --serif: 'Playfair Display', Georgia, serif;
+      --sans:  'Inter', system-ui, sans-serif;
+      --mono:  'JetBrains Mono', 'Courier New', monospace;
+
+      /* Spacing scale */
+      --sp-1: 4px;  --sp-2: 8px;  --sp-3: 12px; --sp-4: 16px;
+      --sp-5: 20px; --sp-6: 24px; --sp-8: 32px; --sp-10: 40px;
+      --sp-12: 48px; --sp-16: 64px;
+
+      /* Radius */
+      --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px;
+
+      /* Transitions */
+      --t-fast: 0.15s ease;
+      --t-base: 0.25s ease;
     }
-    html,body{min-height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
 
-    /* ── Background grid ── */
-    body::before{content:'';position:fixed;inset:0;
-      background-image:linear-gradient(rgba(0,229,255,.025)1px,transparent 1px),
-        linear-gradient(90deg,rgba(0,229,255,.025)1px,transparent 1px);
-      background-size:44px 44px;pointer-events:none;z-index:0}
-    body::after{content:'';position:fixed;width:900px;height:900px;border-radius:50%;
-      background:radial-gradient(circle,rgba(255,214,0,.05)0%,transparent 70%);
-      top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
+    /* ─────────────────────────────────────────────
+       RESET & BASE
+    ───────────────────────────────────────────── */
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    html {
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+    body {
+      background: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    img { display: block; max-width: 100%; }
+    button { font-family: inherit; cursor: pointer; border: none; outline: none; }
+    button:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
 
-    .page{position:relative;z-index:1;min-height:100vh;display:flex;
-      flex-direction:column;align-items:center;padding:40px 16px 80px}
+    /* ─────────────────────────────────────────────
+       LAYOUT
+    ───────────────────────────────────────────── */
+    .page {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+    }
 
-    /* ── Page Header ── */
-    .header{text-align:center;margin-bottom:32px}
-    .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
-      font-size:.62rem;letter-spacing:.16em;color:var(--gold);
-      border:1px solid rgba(255,214,0,.35);padding:5px 16px;border-radius:2px;
-      margin-bottom:18px;animation:pb 3s ease-in-out infinite}
-    @keyframes pb{0%,100%{border-color:rgba(255,214,0,.2)}50%{border-color:rgba(255,214,0,.7)}}
-    .bdot{width:6px;height:6px;border-radius:50%;background:var(--gold);animation:blink 1.4s infinite}
-    @keyframes blink{0%,100%{opacity:1}50%{opacity:.15}}
-    h1{font-size:clamp(1.9rem,5vw,3rem);font-weight:800;color:#fff;
-      letter-spacing:-.02em;line-height:1.1;margin-bottom:10px}
-    h1 .hi{color:var(--gold)}
-    .sub{font-family:var(--mono);font-size:.7rem;color:var(--muted);line-height:2;max-width:460px;margin:0 auto}
+    /* ─────────────────────────────────────────────
+       NAVBAR
+    ───────────────────────────────────────────── */
+    .nav {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 var(--sp-8);
+      height: 64px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+      position: sticky;
+      top: 0;
+      z-index: 100;
+    }
+    .nav-brand {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+    }
+    .nav-logo {
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: 0.02em;
+    }
+    .nav-divider {
+      width: 1px;
+      height: 18px;
+      background: var(--border-2);
+    }
+    .nav-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .nav-voter {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+    }
+    .nav-voter-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--success);
+      flex-shrink: 0;
+    }
+    .nav-voter-id {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      color: var(--text-primary);
+    }
 
-    /* ── Main Card — wide enough for 5-column grid ── */
-    .card{background:var(--surface);border:1px solid var(--border);
-      border-radius:8px;width:100%;max-width:960px;overflow:visible;
-      box-shadow:0 0 120px rgba(255,214,0,.05);margin-bottom:16px}
-    .cbar{display:flex;align-items:center;gap:7px;padding:11px 18px;
-      border-bottom:1px solid var(--border);background:rgba(255,214,0,.02);
-      border-radius:8px 8px 0 0}
-    .dot{width:9px;height:9px;border-radius:50%}
-    .dr{background:#ff5f57}.dy{background:#febc2e}.dg{background:var(--yes);animation:blink 2s infinite}
-    .ctitle{font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-left:4px;letter-spacing:.07em}
-    .voter-tag{margin-left:auto;font-family:var(--mono);font-size:.65rem;color:var(--gold);letter-spacing:.08em}
-    .cbody{padding:28px 28px 24px}
-
-    /* ── Enc strip ── */
-    .enc-strip{display:flex;align-items:center;gap:10px;
-      background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15);
-      border-radius:3px;padding:10px 14px;margin-bottom:24px;
-      font-family:var(--mono);font-size:.67rem;color:var(--yes);letter-spacing:.03em;line-height:1.6}
-
-    /* ── Section label ── */
-    .section-label{font-family:var(--mono);font-size:.6rem;color:var(--muted);
-      letter-spacing:.16em;text-transform:uppercase;margin-bottom:14px;
-      display:flex;align-items:center;gap:8px}
-    .section-label::after{content:'';flex:1;height:1px;background:var(--border)}
-
-    /* ── Progress bar ── */
-    .prog-wrap{margin-bottom:16px}
-    .prog-label{display:flex;justify-content:space-between;
-      font-family:var(--mono);font-size:.6rem;color:var(--muted);margin-bottom:6px}
-    .prog-bar{height:3px;background:var(--faint);border-radius:2px;overflow:hidden}
-    .prog-fill{height:100%;border-radius:2px;transition:width .6s ease;width:0%}
-    .fill-gold{background:linear-gradient(90deg,var(--gold2),var(--gold))}
-
-    /* ── Decrypt section ── */
-    .divider{height:1px;background:var(--border);margin:24px 0;position:relative}
-    .divider::after{content:attr(data-label);position:absolute;top:50%;left:50%;
-      transform:translate(-50%,-50%);background:var(--surface);padding:0 10px;
-      font-family:var(--mono);font-size:.57rem;color:var(--muted);letter-spacing:.12em}
-    .decrypt-hint{font-family:var(--mono);font-size:.67rem;color:var(--muted);
-      margin-bottom:12px;line-height:1.7;text-align:center}
-    #btnDecrypt{width:100%;padding:14px;background:transparent;
-      border:1px solid rgba(0,229,255,.35);border-radius:4px;color:var(--accent);
-      font-family:var(--mono);font-size:.78rem;letter-spacing:.09em;
-      cursor:pointer;transition:all .18s}
-    #btnDecrypt:hover:not(:disabled){background:rgba(0,229,255,.05);
-      border-color:var(--accent);box-shadow:0 0 24px rgba(0,229,255,.1)}
-    #btnDecrypt:disabled{opacity:.28;cursor:not-allowed}
-
-    /* ── Result box ── */
-    .result-box{display:none;margin-top:20px;padding:20px;
-      background:rgba(255,214,0,.04);border:1px solid rgba(255,214,0,.25);
-      border-radius:6px}
-    .result-box.show{display:block}
-    .result-title{font-family:var(--mono);font-size:.6rem;color:var(--muted);
-      letter-spacing:.14em;margin-bottom:16px;text-align:center}
-
-    /* ── Log ── */
-    #log{margin-top:20px;font-family:var(--mono);font-size:.64rem;
-      line-height:1.85;max-height:130px;overflow-y:auto}
-    #log::-webkit-scrollbar{width:3px}
-    #log::-webkit-scrollbar-thumb{background:var(--border)}
-    .log-entry{display:flex;gap:10px;padding:3px 0;
-      border-bottom:1px solid rgba(255,255,255,.03);animation:fu .2s ease}
-    @keyframes fu{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
-    .log-ts{color:var(--muted);flex-shrink:0;min-width:62px}
-    .log-ok{color:var(--yes)}.log-err{color:var(--no)}
-    .log-info{color:var(--accent)}.log-warn{color:var(--gold)}
-
-    /* ── Footer ── */
-    .footer{margin-top:28px;font-family:var(--mono);font-size:.58rem;
-      color:var(--muted);text-align:center;letter-spacing:.07em;line-height:2.5}
-
-    /* ════════════════════════════════════════════
-       BALLON D'OR VOTING UI
-       ════════════════════════════════════════════ */
-
-    /* Ballon d'Or section header */
-    .ballon-header {
+    /* ─────────────────────────────────────────────
+       PAGE HERO
+    ───────────────────────────────────────────── */
+    .hero {
       text-align: center;
-      margin-bottom: 28px;
-      padding: 22px 20px;
-      background: linear-gradient(135deg, rgba(255,193,7,0.08), rgba(0,229,255,0.05));
-      border: 1px solid rgba(255,193,7,0.25);
-      border-radius: 12px;
-      position: relative;
-      overflow: hidden;
+      padding: var(--sp-16) var(--sp-8) var(--sp-10);
+      border-bottom: 1px solid var(--border);
     }
-    .ballon-header::before {
+    .hero-eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: var(--sp-5);
+    }
+    .hero-eyebrow::before,
+    .hero-eyebrow::after {
       content: '';
-      position: absolute;
-      inset: 0;
-      background: radial-gradient(ellipse at 50% 0%, rgba(255,193,7,0.06) 0%, transparent 70%);
-      pointer-events: none;
-    }
-    .ballon-trophy {
-      font-size: 3.2rem;
-      margin-bottom: 10px;
       display: block;
-      filter: drop-shadow(0 0 16px rgba(255,193,7,0.6));
-      animation: trophy-glow 3s ease-in-out infinite;
+      width: 28px;
+      height: 1px;
+      background: var(--gold-border);
     }
-    @keyframes trophy-glow {
-      0%,100% { filter: drop-shadow(0 0 12px rgba(255,193,7,0.4)); }
-      50%      { filter: drop-shadow(0 0 28px rgba(255,193,7,0.9)); }
+    .hero-title {
+      font-family: var(--serif);
+      font-size: clamp(2.4rem, 5vw, 3.8rem);
+      font-weight: 800;
+      color: var(--text-primary);
+      line-height: 1.1;
+      letter-spacing: -0.02em;
+      margin-bottom: var(--sp-4);
     }
-    .ballon-title {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.7rem;
-      color: #ffc107;
-      letter-spacing: 5px;
-      margin: 0 0 6px;
-      text-shadow: 0 0 24px rgba(255,193,7,0.5);
+    .hero-title em {
+      font-style: italic;
+      color: var(--gold);
     }
-    .ballon-subtitle {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.68rem;
-      color: #4a7fa5;
-      letter-spacing: 2px;
-      margin: 0 0 12px;
+    .hero-subtitle {
+      font-size: 0.95rem;
+      color: var(--text-secondary);
+      max-width: 420px;
+      margin: 0 auto var(--sp-6);
+      line-height: 1.7;
     }
-    .ballon-lock-badge {
-      display: inline-block;
-      background: rgba(0,229,255,0.08);
-      border: 1px solid rgba(0,229,255,0.3);
-      color: #00e5ff;
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.63rem;
-      padding: 4px 14px;
+    .hero-badges {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-3);
+      flex-wrap: wrap;
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: var(--sp-2);
+      font-size: 0.7rem;
+      font-family: var(--mono);
+      color: var(--text-muted);
+      border: 1px solid var(--border);
+      padding: 4px 10px;
       border-radius: 20px;
-      letter-spacing: 2px;
+      letter-spacing: 0.04em;
+    }
+    .badge-dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--success);
+    }
+    .badge-gold { color: var(--gold); border-color: var(--gold-border); }
+
+    /* ─────────────────────────────────────────────
+       MAIN CONTENT WRAPPER
+    ───────────────────────────────────────────── */
+    .main {
+      flex: 1;
+      width: 100%;
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: var(--sp-10) var(--sp-6) var(--sp-16);
     }
 
-    /* Candidate Grid: 5 columns × 2 rows */
+    /* ─────────────────────────────────────────────
+       SECTION HEADER
+    ───────────────────────────────────────────── */
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: var(--sp-6);
+      padding-bottom: var(--sp-4);
+      border-bottom: 1px solid var(--border);
+    }
+    .section-title {
+      font-family: var(--serif);
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .section-meta {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+      font-family: var(--mono);
+    }
+
+    /* ─────────────────────────────────────────────
+       CANDIDATE GRID
+    ───────────────────────────────────────────── */
+    #ballonDorSection { display: none; }
+
     .candidate-grid {
       display: grid;
       grid-template-columns: repeat(5, 1fr);
-      gap: 12px;
-      margin-bottom: 20px;
-    }
-    @media (max-width: 700px) {
-      .candidate-grid { grid-template-columns: repeat(3, 1fr); gap: 8px; }
-    }
-    @media (max-width: 460px) {
-      .candidate-grid { grid-template-columns: repeat(2, 1fr); gap: 8px; }
+      gap: 14px;
+      margin-bottom: var(--sp-8);
     }
 
-    /* Candidate Card */
+    /* ─────────────────────────────────────────────
+       CANDIDATE CARD
+    ───────────────────────────────────────────── */
     .candidate-card {
       position: relative;
-      background: rgba(9, 21, 37, 0.95);
-      border: 1px solid #1a3050;
-      border-radius: 10px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
       overflow: hidden;
       cursor: pointer;
-      transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+      transition: border-color var(--t-base), box-shadow var(--t-base);
       user-select: none;
     }
     .candidate-card:hover {
-      border-color: rgba(255,193,7,0.55);
-      transform: translateY(-4px);
-      box-shadow: 0 10px 28px rgba(255,193,7,0.18);
+      border-color: var(--gold-dark);
+      box-shadow: 0 4px 20px rgba(0,0,0,0.4);
     }
     .candidate-card.selected {
-      border-color: #ffc107;
-      box-shadow: 0 0 24px rgba(255,193,7,0.4), inset 0 0 24px rgba(255,193,7,0.06);
+      border-color: var(--gold);
+      box-shadow: 0 0 0 2px rgba(201,168,76,0.25);
     }
-    /* Gold checkmark on selected card */
     .candidate-card.selected::after {
       content: '✓';
       position: absolute;
-      top: 8px;
-      right: 8px;
+      top: var(--sp-2);
+      right: var(--sp-2);
       width: 22px;
       height: 22px;
-      background: #ffc107;
-      color: #050d1a;
+      background: var(--gold);
+      color: #0e0e0e;
       border-radius: 50%;
-      font-size: 0.72rem;
-      font-weight: 900;
+      font-size: 0.65rem;
+      font-weight: 700;
       display: flex;
       align-items: center;
       justify-content: center;
       z-index: 10;
-      box-shadow: 0 0 10px rgba(255,193,7,0.6);
     }
-    /* Dim all cards after voting, keep selected bright */
     .candidate-card.voted-lock {
-      opacity: 0.4;
-      cursor: not-allowed;
+      opacity: 0.35;
+      cursor: default;
       pointer-events: none;
-      transform: none !important;
     }
     .candidate-card.voted-lock.selected {
       opacity: 1;
     }
 
-    /* Player photo */
+    /* Photo */
     .candidate-photo-wrap {
       width: 100%;
-      aspect-ratio: 3 / 4;
+      aspect-ratio: 2 / 3;
       overflow: hidden;
-      background: #0d1f35;
+      background: var(--surface-2);
       position: relative;
     }
     .candidate-photo {
@@ -254,391 +331,643 @@
       height: 100%;
       object-fit: cover;
       object-position: top center;
-      display: block;
-      transition: transform 0.3s ease;
+      transition: transform 0.35s ease;
     }
-    .candidate-card:hover .candidate-photo { transform: scale(1.05); }
-
-    /* Fallback initials — pure CSS, shown when image fails */
+    .candidate-card:hover .candidate-photo {
+      transform: scale(1.04);
+    }
     .candidate-photo-fallback {
       display: none;
       position: absolute;
       inset: 0;
       align-items: center;
       justify-content: center;
-      font-family: 'Syne', sans-serif;
-      font-size: 2.2rem;
-      font-weight: 800;
-      color: #4a7fa5;
-      background: linear-gradient(160deg, #0a1628 0%, #0d1e30 100%);
-      letter-spacing: 2px;
+      font-family: var(--serif);
+      font-size: 2rem;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--text-muted);
+      background: var(--surface-2);
     }
 
-    /* Player info block */
+    /* Info block */
     .candidate-info {
-      padding: 8px 9px 10px;
-      border-top: 1px solid rgba(26,48,80,0.8);
-      background: rgba(5,13,26,0.6);
+      padding: 10px 11px 12px;
+      background: var(--surface);
+      border-top: 1px solid var(--border);
     }
     .candidate-number {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.52rem;
-      color: #ffc107;
-      letter-spacing: 1px;
-      margin-bottom: 2px;
-      opacity: 0.65;
+      font-family: var(--mono);
+      font-size: 0.6rem;
+      color: var(--gold);
+      opacity: 0.7;
+      margin-bottom: 3px;
+      letter-spacing: 0.06em;
     }
     .candidate-name {
-      font-family: 'Syne', sans-serif;
-      font-size: 0.72rem;
-      color: #e8f0f8;
-      font-weight: 700;
-      margin-bottom: 2px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      margin-bottom: 2px;
+      letter-spacing: -0.01em;
     }
     .candidate-club {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.58rem;
-      color: #4a7fa5;
+      font-size: 0.68rem;
+      color: var(--text-muted);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
     .candidate-nationality {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.52rem;
-      color: #2a5070;
+      font-size: 0.62rem;
+      color: var(--text-muted);
+      opacity: 0.6;
       margin-top: 1px;
     }
 
-    /* Selected candidate preview bar */
-    .selected-preview {
+    /* ─────────────────────────────────────────────
+       SELECTION PANEL
+    ───────────────────────────────────────────── */
+    .selection-panel {
       display: flex;
       align-items: center;
-      gap: 14px;
-      background: rgba(255,193,7,0.06);
-      border: 1px solid rgba(255,193,7,0.3);
-      border-radius: 8px;
-      padding: 12px 18px;
-      margin-bottom: 14px;
-      animation: slide-in 0.25s ease;
+      gap: var(--sp-4);
+      background: var(--surface);
+      border: 1px solid var(--gold-border);
+      border-radius: var(--r-lg);
+      padding: var(--sp-4) var(--sp-5);
+      margin-bottom: var(--sp-3); /* Reduced margin to group with button */
+      animation: fadeUp 0.2s ease;
     }
-    @keyframes slide-in {
-      from { opacity: 0; transform: translateY(-6px); }
-      to   { opacity: 1; transform: none; }
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to   { opacity: 1; transform: translateY(0); }
     }
-    .preview-label {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.62rem;
-      color: #4a7fa5;
-      letter-spacing: 2px;
+    .selection-label {
+      font-size: 0.72rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
       white-space: nowrap;
     }
-    .preview-img {
-      width: 46px;
-      height: 46px;
+    .selection-img {
+      width: 44px;
+      height: 44px;
       border-radius: 50%;
       object-fit: cover;
       object-position: top;
-      border: 2px solid #ffc107;
+      border: 2px solid var(--gold);
       flex-shrink: 0;
     }
-    .preview-name {
-      font-family: 'Syne', sans-serif;
-      font-size: 1rem;
-      color: #ffc107;
-      font-weight: 700;
-    }
-    .preview-club {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.62rem;
-      color: #4a7fa5;
-      margin-left: auto;
-    }
-
-    /* Confirm vote button */
-    .confirm-vote-btn {
-      width: 100%;
-      padding: 16px;
-      background: linear-gradient(135deg, rgba(255,193,7,0.14), rgba(255,193,7,0.04));
-      border: 1px solid #ffc107;
-      border-radius: 8px;
-      color: #ffc107;
-      font-family: 'Syne', sans-serif;
-      font-size: 0.95rem;
-      font-weight: 700;
-      letter-spacing: 4px;
-      cursor: pointer;
-      transition: all 0.2s ease;
-      margin-bottom: 14px;
-      text-shadow: 0 0 12px rgba(255,193,7,0.4);
-    }
-    .confirm-vote-btn:hover {
-      background: rgba(255,193,7,0.2);
-      box-shadow: 0 0 30px rgba(255,193,7,0.3);
-      transform: translateY(-1px);
-    }
-    .confirm-vote-btn:disabled {
-      opacity: 0.35;
-      cursor: not-allowed;
-      transform: none;
-      box-shadow: none;
-    }
-
-    /* Voted badge */
-    .voted-badge {
-      text-align: center;
-      padding: 16px;
-      background: rgba(0,255,136,0.05);
-      border: 1px solid rgba(0,255,136,0.28);
-      border-radius: 8px;
-      font-family: 'Share Tech Mono', monospace;
-      color: #00ff88;
-      font-size: 0.8rem;
-      letter-spacing: 2px;
-      animation: slide-in 0.3s ease;
-    }
-
-    /* Votes-cast progress bar (inside section) */
-    .progress-wrap {
-      margin: 14px 0 6px;
-    }
-    .progress-label {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.62rem;
-      color: #4a7fa5;
-      margin-bottom: 6px;
-      display: flex;
-      justify-content: space-between;
-    }
-    .progress-bar-bg {
-      width: 100%;
-      height: 3px;
-      background: #0d1e30;
-      border-radius: 2px;
-      overflow: hidden;
-    }
-    .progress-bar-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #00b4d8, #00e5ff);
-      border-radius: 2px;
-      transition: width 0.55s ease;
-      width: 0%;
-    }
-
-    /* Leaderboard (results) */
-    .leaderboard { margin-top: 4px; }
-    .leaderboard-row {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 10px 14px;
-      margin-bottom: 8px;
-      background: rgba(9,21,37,0.8);
-      border: 1px solid #1a3050;
-      border-radius: 8px;
-      transition: border-color 0.2s;
-      animation: slide-in 0.35s ease both;
-    }
-    .leaderboard-row.rank-1 { border-color: #ffc107; background: rgba(255,193,7,0.06); }
-    .leaderboard-row.rank-2 { border-color: #9e9e9e; background: rgba(158,158,158,0.04); }
-    .leaderboard-row.rank-3 { border-color: #cd7f32; background: rgba(205,127,50,0.04); }
-    .leaderboard-rank {
-      font-family: 'Syne', sans-serif;
-      font-size: 1.2rem;
-      font-weight: 700;
-      width: 32px;
-      text-align: center;
-      flex-shrink: 0;
-      color: #4a7fa5;
-    }
-    .leaderboard-row.rank-1 .leaderboard-rank { color: #ffc107; }
-    .leaderboard-row.rank-2 .leaderboard-rank { color: #c0c0c0; }
-    .leaderboard-row.rank-3 .leaderboard-rank { color: #cd7f32; }
-    .lb-photo-wrap {
-      width: 42px;
-      height: 42px;
-      border-radius: 50%;
-      overflow: hidden;
-      position: relative;
-      flex-shrink: 0;
-      border: 2px solid #1a3050;
-      background: #0d1e30;
-    }
-    .leaderboard-row.rank-1 .lb-photo-wrap { border-color: #ffc107; }
-    .leaderboard-row.rank-2 .lb-photo-wrap { border-color: #c0c0c0; }
-    .leaderboard-row.rank-3 .lb-photo-wrap { border-color: #cd7f32; }
-    .leaderboard-photo {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
-      object-position: top;
-      display: block;
-    }
-    .lb-photo-fallback {
-      display: none;
-      position: absolute;
-      inset: 0;
-      align-items: center;
-      justify-content: center;
-      font-family: 'Syne', sans-serif;
-      font-size: 0.85rem;
-      font-weight: 700;
-      color: #4a7fa5;
-      background: #0a1628;
-    }
-    .leaderboard-name {
-      font-family: 'Syne', sans-serif;
-      font-size: 0.88rem;
-      color: #e8f0f8;
-      font-weight: 600;
+    .selection-info {
       flex: 1;
       min-width: 0;
+    }
+    .selection-name {
+      font-weight: 600;
+      color: var(--text-primary);
+      font-size: 0.95rem;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
-    .leaderboard-club {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.58rem;
-      color: #4a7fa5;
-      white-space: nowrap;
+    .selection-club {
+      font-size: 0.75rem;
+      color: var(--text-muted);
     }
-    .leaderboard-votes {
-      font-family: 'Share Tech Mono', monospace;
+    .selection-badge {
+      flex-shrink: 0;
+      font-size: 0.7rem;
+      font-family: var(--mono);
+      color: var(--gold);
+      border: 1px solid var(--gold-border);
+      padding: 3px 9px;
+      border-radius: 20px;
+    }
+
+    /* ─────────────────────────────────────────────
+       BUTTONS
+    ───────────────────────────────────────────── */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
+      font-size: 0.88rem;
+      font-weight: 600;
+      letter-spacing: 0.03em;
+      padding: 13px 24px;
+      border-radius: var(--r-md);
+      transition: all var(--t-fast);
+    }
+    .btn-primary {
+      background: var(--gold);
+      color: #0e0e0e;
+      border: 1px solid transparent;
+      width: 100%;
+      margin-bottom: var(--sp-3);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: var(--gold-light);
+    }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background: transparent;
+      color: var(--text-secondary);
+      border: 1px solid var(--border-2);
+      width: 100%;
+    }
+    .btn-secondary:hover:not(:disabled) {
+      border-color: var(--text-secondary);
+      color: var(--text-primary);
+    }
+    .btn-secondary:disabled {
+      background: var(--surface-2);
+      border-color: transparent;
+      color: var(--text-muted);
+      cursor: not-allowed;
+    }
+
+    /* ─────────────────────────────────────────────
+       VOTED CONFIRMATION
+    ───────────────────────────────────────────── */
+    .voted-badge {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-3);
+      background: var(--success-bg);
+      border: 1px solid rgba(76,175,130,0.25);
+      border-radius: var(--r-lg);
+      padding: var(--sp-4) var(--sp-5);
+      animation: fadeUp 0.3s ease;
+    }
+    .voted-badge-icon {
+      font-size: 1.2rem;
+      flex-shrink: 0;
+    }
+    .voted-badge-text {
       font-size: 0.85rem;
-      color: #00e5ff;
-      font-weight: 700;
-      white-space: nowrap;
+      font-weight: 500;
+      color: var(--success);
     }
-    .leaderboard-row.rank-1 .leaderboard-votes { color: #ffc107; }
-    .leaderboard-bar-wrap {
+    .voted-badge-sub {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+
+    /* ─────────────────────────────────────────────
+       PROGRESS BAR
+    ───────────────────────────────────────────── */
+    .progress-section {
+      margin: var(--sp-6) 0 var(--sp-4);
+      padding: var(--sp-5);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+    }
+    .progress-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: var(--sp-3);
+    }
+    .progress-label {
+      font-size: 0.78rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+    }
+    .progress-count {
+      font-family: var(--mono);
+      font-size: 0.78rem;
+      color: var(--text-primary);
+    }
+    .progress-track {
+      width: 100%;
+      height: 3px;
+      background: var(--surface-3);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .progress-fill {
+      height: 100%;
+      background: var(--gold);
+      border-radius: 2px;
+      transition: width 0.6s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+    }
+
+    /* ─────────────────────────────────────────────
+       DIVIDER
+    ───────────────────────────────────────────── */
+    .section-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--sp-4);
+      margin: var(--sp-10) 0 var(--sp-6);
+      color: var(--text-muted);
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+    .section-divider::before,
+    .section-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* ─────────────────────────────────────────────
+       DECRYPTION PANEL
+    ───────────────────────────────────────────── */
+    .decrypt-panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      padding: var(--sp-6) var(--sp-6);
+      text-align: center;
+    }
+    .decrypt-title {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: var(--sp-2);
+    }
+    .decrypt-desc {
+      font-size: 0.8rem;
+      color: var(--text-secondary);
+      line-height: 1.7;
+      margin-bottom: var(--sp-5);
+      max-width: 380px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    /* ─────────────────────────────────────────────
+       RESULTS / LEADERBOARD
+    ───────────────────────────────────────────── */
+    .result-box { display: none; }
+    .result-box.show { display: block; }
+
+    .result-header {
+      text-align: center;
+      padding: var(--sp-8) 0 var(--sp-6);
+    }
+    .result-trophy {
+      font-size: 2.8rem;
+      margin-bottom: var(--sp-3);
+    }
+    .result-title {
+      font-family: var(--serif);
+      font-size: 1.8rem;
+      font-weight: 800;
+      color: var(--text-primary);
+      margin-bottom: var(--sp-2);
+    }
+    .result-subtitle {
+      font-size: 0.8rem;
+      color: var(--text-muted);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .leaderboard { margin-top: var(--sp-6); }
+
+    .leaderboard-row {
+      display: grid;
+      grid-template-columns: 40px 52px 1fr auto auto;
+      align-items: center;
+      gap: var(--sp-4);
+      padding: var(--sp-4) var(--sp-5);
+      margin-bottom: var(--sp-2);
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-lg);
+      transition: border-color var(--t-fast);
+      animation: fadeUp 0.4s ease both;
+    }
+    .leaderboard-row.rank-1 {
+      border-color: var(--gold-border);
+      background: var(--gold-bg);
+    }
+    .leaderboard-row.rank-2 {
+      border-color: rgba(158,158,158,0.25);
+    }
+    .leaderboard-row.rank-3 {
+      border-color: rgba(184,115,51,0.25);
+    }
+
+    .leaderboard-rank {
+      text-align: center;
+      font-family: var(--serif);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--text-muted);
+      flex-shrink: 0;
+    }
+    .leaderboard-row.rank-1 .leaderboard-rank { color: var(--gold); }
+    .leaderboard-row.rank-2 .leaderboard-rank { color: var(--silver); }
+    .leaderboard-row.rank-3 .leaderboard-rank { color: var(--bronze); }
+
+    .lb-photo-wrap {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      overflow: hidden;
+      position: relative;
+      flex-shrink: 0;
+      border: 2px solid var(--border-2);
+      background: var(--surface-2);
+    }
+    .leaderboard-row.rank-1 .lb-photo-wrap { border-color: var(--gold); }
+    .leaderboard-row.rank-2 .lb-photo-wrap { border-color: var(--silver); }
+    .leaderboard-row.rank-3 .lb-photo-wrap { border-color: var(--bronze); }
+    .leaderboard-photo {
+      width: 100%; height: 100%;
+      object-fit: cover;
+      object-position: top;
+    }
+    .lb-photo-fallback {
+      display: none;
+      position: absolute; inset: 0;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--serif);
+      font-size: 0.85rem;
+      font-weight: 700;
+      font-style: italic;
+      color: var(--text-muted);
+      background: var(--surface-2);
+    }
+    .lb-player-info {
+      min-width: 0;
+    }
+    .leaderboard-name {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: -0.01em;
+    }
+    .leaderboard-club {
+      font-size: 0.72rem;
+      color: var(--text-muted);
+      margin-top: 1px;
+    }
+    .lb-bar-wrap {
       width: 80px;
-      height: 4px;
-      background: #1a3050;
+      height: 3px;
+      background: var(--surface-3);
       border-radius: 2px;
       overflow: hidden;
       flex-shrink: 0;
     }
-    .leaderboard-bar {
+    .lb-bar {
       height: 100%;
-      background: #00e5ff;
+      background: var(--text-muted);
       border-radius: 2px;
-      transition: width 0.9s ease;
+      transition: width 1s cubic-bezier(.4,0,.2,1);
     }
-    .leaderboard-row.rank-1 .leaderboard-bar { background: #ffc107; }
-    .leaderboard-row.rank-2 .leaderboard-bar { background: #c0c0c0; }
-    .leaderboard-row.rank-3 .leaderboard-bar { background: #cd7f32; }
+    .leaderboard-row.rank-1 .lb-bar { background: var(--gold); }
+    .leaderboard-row.rank-2 .lb-bar { background: var(--silver); }
+    .leaderboard-row.rank-3 .lb-bar { background: var(--bronze); }
+    .leaderboard-votes {
+      font-family: var(--mono);
+      font-size: 0.85rem;
+      font-weight: 500;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      text-align: right;
+      min-width: 70px;
+    }
+    .leaderboard-row.rank-1 .leaderboard-votes { color: var(--gold); }
 
-    /* Result box title */
-    .result-title {
-      font-family: 'Share Tech Mono', monospace;
-      font-size: 0.62rem;
-      color: var(--muted);
-      letter-spacing: .14em;
-      margin-bottom: 16px;
-      text-align: center;
+    /* ─────────────────────────────────────────────
+       ACTIVITY LOG
+    ───────────────────────────────────────────── */
+    .log-section {
+      margin-top: var(--sp-8);
+      border-top: 1px solid var(--border);
+      padding-top: var(--sp-5);
+    }
+    .log-label {
+      font-size: 0.7rem;
+      font-weight: 500;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: var(--sp-3);
+    }
+    #log {
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      line-height: 1.9;
+      max-height: 120px;
+      overflow-y: auto;
+      scrollbar-width: thin;
+      scrollbar-color: var(--border) transparent;
+    }
+    #log::-webkit-scrollbar { width: 3px; }
+    #log::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+    .log-entry {
+      display: flex;
+      gap: var(--sp-3);
+      padding: 2px 0;
+      animation: fadeUp 0.15s ease;
+    }
+    .log-ts { color: var(--border-2); flex-shrink: 0; min-width: 58px; }
+    .log-ok   { color: var(--success); opacity: 0.8; }
+    .log-err  { color: var(--error); opacity: 0.8; }
+    .log-info { color: var(--text-muted); }
+    .log-warn { color: var(--gold); opacity: 0.8; }
+
+    /* ─────────────────────────────────────────────
+       FOOTER
+    ───────────────────────────────────────────── */
+    .footer {
+      border-top: 1px solid var(--border);
+      padding: var(--sp-6) var(--sp-8);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: var(--sp-4);
+      flex-wrap: wrap;
+    }
+    .footer-left {
+      font-size: 0.78rem;
+      color: var(--text-muted);
+    }
+    .footer-left strong {
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+    .footer-right {
+      font-family: var(--mono);
+      font-size: 0.68rem;
+      color: var(--text-muted);
+    }
+
+    /* ─────────────────────────────────────────────
+       RESPONSIVE
+    ───────────────────────────────────────────── */
+    @media (max-width: 900px) {
+      .candidate-grid { grid-template-columns: repeat(4, 1fr); }
+    }
+    @media (max-width: 680px) {
+      .nav { padding: 0 var(--sp-5); }
+      .hero { padding: var(--sp-10) var(--sp-5) var(--sp-8); }
+      .main { padding: var(--sp-6) var(--sp-4) var(--sp-10); }
+      .candidate-grid { grid-template-columns: repeat(3, 1fr); gap: 10px; }
+      .footer { flex-direction: column; align-items: flex-start; gap: var(--sp-2); }
+      .leaderboard-row {
+        grid-template-columns: 36px 44px 1fr auto;
+      }
+      .lb-bar-wrap { display: none; }
+    }
+    @media (max-width: 440px) {
+      .candidate-grid { grid-template-columns: repeat(2, 1fr); }
+      .hero-title { font-size: 2rem; }
+      .leaderboard-row { gap: var(--sp-3); padding: var(--sp-3) var(--sp-4); }
     }
   </style>
 </head>
 <body>
 <div class="page">
 
-  <!-- ── Page Header ── -->
-  <div class="header">
-    <div class="badge"><span class="bdot"></span>BALLON D'OR · MK-FHE · PRIVACY-PRESERVING</div>
-    <h1>Ballon <span class="hi">d'Or</span><br>Secure E-Vote</h1>
-    <p class="sub">Your ballot is encrypted locally · Server sees only ciphertext<br>
-      Threshold decryption requires <em>all</em> voters to reveal the tally</p>
+  <!-- ── Navigation ── -->
+  <nav class="nav">
+    <div class="nav-brand">
+      <span class="nav-logo">Ballon d'Or</span>
+      <div class="nav-divider"></div>
+      <span class="nav-sub">Official Ballot</span>
+    </div>
+    <div class="nav-voter">
+      <div class="nav-voter-dot"></div>
+      <span>Authenticated as</span>
+      <span class="nav-voter-id" id="voterTag">–</span>
+    </div>
+  </nav>
+
+  <!-- ── Hero ── -->
+  <div class="hero">
+    <div class="hero-eyebrow">France Football · 2024 Edition</div>
+    <h1 class="hero-title">Vote for the<br><em>Ballon d'Or</em></h1>
+    <p class="hero-subtitle">
+      Select your candidate. Your ballot is encrypted on this device and only the aggregate tally is ever revealed.
+    </p>
+    <div class="hero-badges">
+      <span class="badge badge-gold">
+        <span class="badge-dot"></span>
+        End-to-End Encrypted
+      </span>
+      <span class="badge">Multi-Key FHE · OpenFHE 1.5</span>
+      <span class="badge">BFV-RNS · 128-bit Security</span>
+    </div>
   </div>
 
-  <!-- ── Main Card ── -->
-  <div class="card">
-    <div class="cbar">
-      <div class="dot dr"></div><div class="dot dy"></div><div class="dot dg"></div>
-      <span class="ctitle" id="cardTitle">secure-evote / ballot</span>
-      <span class="voter-tag" id="voterTag">VOTER</span>
+  <!-- ── Main Content ── -->
+  <main class="main">
+
+    <!-- ══ CANDIDATE SELECTION SECTION ══ -->
+    <div id="ballonDorSection" style="display:none">
+
+      <div class="section-head">
+        <h2 class="section-title">Nominees — 2024</h2>
+        <span class="section-meta" id="sectionMeta">Select one candidate</span>
+      </div>
+
+      <!-- Candidate Grid — populated by vote.js -->
+      <div id="candidateGrid" class="candidate-grid"></div>
+
+      <!-- Selected candidate preview (hidden until selection) -->
+      <div id="selectedPreview" class="selection-panel" style="display:none">
+        <span class="selection-label">Selected</span>
+        <img id="previewImg" class="selection-img" src="" alt="">
+        <div class="selection-info">
+          <div class="selection-name" id="previewName"></div>
+          <div class="selection-club" id="previewClub"></div>
+        </div>
+        <span class="selection-badge">Pending</span>
+      </div>
+
+      <!-- Confirm & Encrypt button -->
+      <button id="confirmVoteBtn" class="btn btn-primary" style="display:none" onclick="confirmAndVote()">
+        Confirm &amp; Encrypt Vote
+      </button>
+
+      <!-- Post-vote confirmation -->
+      <div id="votedBadge" class="voted-badge" style="display:none">
+        <span class="voted-badge-icon">✓</span>
+        <div>
+          <div class="voted-badge-text">Your vote has been submitted</div>
+          <div class="voted-badge-sub">Encrypted under the joint MK-FHE public key. The server sees only ciphertext.</div>
+        </div>
+      </div>
+
+      <!-- Votes progress (shown during voting + decryption phases) -->
+      <div class="progress-section" id="progressWrap" style="display:none">
+        <div class="progress-row">
+          <span class="progress-label">Votes received</span>
+          <span class="progress-count" id="progressText">0 / 0</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
     </div>
-    <div class="cbody">
+    <!-- ══ END CANDIDATE SECTION ══ -->
 
-      <!-- Encryption indicator -->
-      <div class="enc-strip">
-        🔐 END-TO-END ENCRYPTED · BFV-RNS · MULTIPARTY FHE · OpenFHE 1.5.0
-      </div>
-
-      <!-- ══ BALLON D'OR VOTING SECTION ══ -->
-      <div id="ballonDorSection" style="display:none">
-
-        <!-- Trophy Header -->
-        <div class="ballon-header">
-          <span class="ballon-trophy">🏆</span>
-          <h2 class="ballon-title">BALLON D'OR 2024</h2>
-          <p class="ballon-subtitle">SELECT YOUR CANDIDATE — VOTE IS ENCRYPTED END-TO-END</p>
-          <div class="ballon-lock-badge">🔒 MK-FHE PROTECTED</div>
-        </div>
-
-        <!-- Candidate Grid: 5 columns × 2 rows — populated by vote.js -->
-        <div id="candidateGrid" class="candidate-grid"></div>
-
-        <!-- Selected candidate preview bar (hidden until selection) -->
-        <div id="selectedPreview" class="selected-preview" style="display:none">
-          <span class="preview-label">YOUR SELECTION:</span>
-          <img id="previewImg" class="preview-img" src="" alt="">
-          <span id="previewName" class="preview-name"></span>
-          <span id="previewClub" class="preview-club"></span>
-        </div>
-
-        <!-- Confirm & Encrypt button -->
-        <button id="confirmVoteBtn" class="confirm-vote-btn"
-                style="display:none" onclick="confirmAndVote()">
-          🔐 CONFIRM &amp; ENCRYPT VOTE
-        </button>
-
-        <!-- Post-vote success badge -->
-        <div id="votedBadge" class="voted-badge" style="display:none">
-          ✅ YOUR ENCRYPTED VOTE HAS BEEN SUBMITTED
-        </div>
-
-        <!-- Votes-cast progress bar -->
-        <div class="progress-wrap" id="progressWrap" style="display:none">
-          <div class="progress-label">
-            <span>VOTES CAST</span>
-            <span id="progressText">0 / 0</span>
-          </div>
-          <div class="progress-bar-bg">
-            <div class="progress-bar-fill" id="progressFill"></div>
-          </div>
-        </div>
-
-      </div>
-      <!-- ══ END BALLON D'OR SECTION ══ -->
-
-      <!-- ── Decryption Phase ── -->
-      <div class="divider" data-label="DECRYPTION PHASE"></div>
-      <p class="decrypt-hint">
-        After ALL voters have cast ballots, each voter must<br>
-        contribute their key share to reveal the final tally.
+    <!-- ── Decryption Phase ── -->
+    <div class="section-divider" id="decryptDivider">Threshold Decryption</div>
+    <div class="decrypt-panel" id="decryptPanel">
+      <div class="decrypt-title">Reveal the Tally</div>
+      <p class="decrypt-desc">
+        Once all voters have cast their ballots, each voter must contribute
+        their private key share to decrypt the aggregate result.
+        The server never sees individual votes.
       </p>
-      <button id="btnDecrypt" onclick="partialDecrypt()" disabled>[ SUBMIT DECRYPTION SHARE ]</button>
+      <button id="btnDecrypt" class="btn btn-secondary" onclick="partialDecrypt()" disabled>
+        Submit Decryption Share
+      </button>
+    </div>
 
-      <!-- ── Final Results ── -->
-      <div class="result-box" id="resultBox">
-        <div class="result-title">🏆 BALLON D'OR — FINAL VOTE TALLY</div>
-        <div id="leaderboardContainer"></div>
+    <!-- ── Final Results ── -->
+    <div class="result-box" id="resultBox">
+      <div class="result-header">
+        <div class="result-trophy">🏆</div>
+        <h2 class="result-title">Final Results</h2>
+        <p class="result-subtitle">Ballon d'Or 2024 — Verified Tally</p>
       </div>
+      <div id="leaderboardContainer"></div>
+    </div>
 
-      <!-- ── Activity Log ── -->
+    <!-- ── Activity Log ── -->
+    <div class="log-section">
+      <div class="log-label">System Log</div>
       <div id="log"></div>
     </div>
-  </div>
 
-  <div class="footer">
-    <div>Privacy-Preserving Ballon d'Or E-Voting · Graduation Project</div>
-    <div>Multi-Key FHE · OpenFHE 1.5.0 · C++17 · Node.js</div>
-    <div style="color:#1a3050;margin-top:4px">threshold decryption · no single point of trust</div>
-  </div>
+  </main>
+
+  <!-- ── Footer ── -->
+  <footer class="footer">
+    <div class="footer-left">
+      <strong>Ballon d'Or Secure E-Voting</strong> — Privacy-preserving ballot powered by Multi-Key FHE
+    </div>
+    <div class="footer-right">OpenFHE 1.5.0 · C++17 · Node.js · Threshold Decryption</div>
+  </footer>
+
 </div>
 <script src="vote.js"></script>
 </body>

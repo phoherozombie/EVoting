@@ -72,9 +72,8 @@ async function loadCandidates() {
         const grid = document.getElementById('candidateGrid');
         if (grid) {
             grid.innerHTML =
-                `<p style="color:#ff3860;font-family:'Share Tech Mono',monospace;`+
-                `text-align:center;grid-column:1/-1;padding:20px 0">` +
-                `Error loading candidates: ${esc(err.message)}</p>`;
+                `<p style="color:var(--error);grid-column:1/-1;text-align:center;padding:24px 0;font-size:.85rem">` +
+                `Unable to load candidates: ${esc(err.message)}</p>`;
         }
         addLog(`Could not load candidates: ${err.message}`, 'err');
     }
@@ -87,14 +86,13 @@ function renderCandidateGrid() {
 
     if (!candidates || candidates.length === 0) {
         grid.innerHTML =
-            '<p style="font-family:\'Share Tech Mono\',monospace;font-size:.68rem;'  +
-            'color:#4a6080;grid-column:1/-1;text-align:center;padding:20px 0">'      +
+            '<p style="color:var(--text-muted);grid-column:1/-1;text-align:center;padding:24px 0;font-size:.85rem">' +
             'No candidates configured.</p>';
         return;
     }
 
     grid.innerHTML = candidates.map(c => {
-        const num  = String((c.id || 0) + 1).padStart(2, '0');
+        const num   = String((c.id || 0) + 1).padStart(2, '0');
         const inits = initials(c.name);
         const imgSrc = esc(c.image || '');
 
@@ -125,6 +123,10 @@ function renderCandidateGrid() {
     // Show the Ballon d'Or section
     const section = document.getElementById('ballonDorSection');
     if (section) section.style.display = 'block';
+
+    // Update section meta
+    const meta = document.getElementById('sectionMeta');
+    if (meta) meta.textContent = `${candidates.length} nominees — select one`;
 
     // Hide any legacy YES/NO elements that may still exist
     ['votingSection', 'yesNoSection', 'btnYes', 'btnNo', 'btnConfirm'].forEach(id => {
@@ -179,12 +181,17 @@ function selectCandidate(index) {
         if (clubEl) clubEl.textContent = cand.club || cand.nationality || '';
     }
 
+    // Update section meta to show selection
+    const meta = document.getElementById('sectionMeta');
+    const cand2 = candidates.find(c => c.id === index);
+    if (meta && cand2) meta.textContent = `Selected: ${cand2.name}`;
+
     // Show confirm button
     const btn = document.getElementById('confirmVoteBtn');
     if (btn) {
         btn.style.display = 'block';
         btn.disabled      = false;
-        btn.textContent   = '🔐 CONFIRM & ENCRYPT VOTE';
+        btn.textContent   = 'Confirm & Encrypt Vote';
     }
 }
 
@@ -196,17 +203,16 @@ async function confirmAndVote() {
     if (!candidate) return;
 
     const ok = window.confirm(
-        `🗳️ CONFIRM ENCRYPTED VOTE\n\n` +
+        `Confirm your vote\n\n` +
         `Candidate: ${candidate.name}\n` +
         `Club: ${candidate.club || ''}\n\n` +
-        `This vote will be encrypted using MK-FHE.\n` +
-        `You cannot change your vote after confirmation.\n\n` +
-        `Proceed?`
+        `Your ballot will be encrypted using Multi-Key FHE before being sent to the server.` +
+        ` This action cannot be undone.\n\nProceed?`
     );
     if (!ok) return;
 
     const btn = document.getElementById('confirmVoteBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'ENCRYPTING...'; }
+    if (btn) { btn.disabled = true; btn.textContent = 'Encrypting…'; }
 
     // Resolve voter ID: try explicit input, then health endpoint tag
     let voterId = '';
@@ -256,8 +262,8 @@ async function confirmAndVote() {
         addLog('✓ Vote encrypted under joint MK-FHE key and submitted.', 'ok');
 
     } catch (err) {
-        if (btn) { btn.disabled = false; btn.textContent = '🔐 CONFIRM & ENCRYPT VOTE'; }
-        addLog(`✗ Vote failed: ${err.message}`, 'err');
+        if (btn) { btn.disabled = false; btn.textContent = 'Confirm & Encrypt Vote'; }
+        addLog(`Vote failed: ${err.message}`, 'err');
     }
 }
 
@@ -357,40 +363,40 @@ function renderLeaderboard(resultsArray, candidatesData) {
 
     const maxVotes = Math.max(1, resultsArray[0].votes || 0);
 
-    const medals = ['🥇', '🥈', '🥉'];
+    // Medal symbols for top 3, rank number for the rest
+    const medalSymbols = ['🥇', '🥈', '🥉'];
 
     const rows = resultsArray.map((r, i) => {
         const rank      = i + 1;
         const rankClass = rank <= 3 ? `rank-${rank}` : '';
-        const medal     = rank <= 3 ? medals[i] : `#${rank}`;
+        const rankLabel = rank <= 3 ? medalSymbols[i] : `#${rank}`;
 
-        // Merge with candidatesData to get image if not in result
-        const cand  = (candidatesData || []).find(c => c.id === r.id) || r;
+        const cand   = (candidatesData || []).find(c => c.id === r.id) || r;
         const imgSrc = esc(cand.image || r.image || '');
         const inits  = initials(cand.name || r.name || '');
         const pct    = maxVotes > 0 ? Math.round(((r.votes || 0) / maxVotes) * 100) : 0;
+        const votes  = r.votes || 0;
+        const voteLabel = votes === 1 ? '1 vote' : `${votes} votes`;
 
         return `
-        <div class="leaderboard-row ${rankClass}"
-             style="animation-delay:${i * 0.07}s">
-          <div class="leaderboard-rank">${medal}</div>
+        <div class="leaderboard-row ${rankClass}" style="animation-delay:${i * 0.08}s">
+          <div class="leaderboard-rank">${rankLabel}</div>
           <div class="lb-photo-wrap">
             <img class="leaderboard-photo"
                  src="${imgSrc}"
                  alt="${esc(cand.name || r.name)}"
                  loading="lazy"
-                 onerror="this.style.display='none';
-                          this.nextElementSibling.style.display='flex'">
-            <div class="lb-photo-fallback">
-              <span>${esc(inits)}</span>
-            </div>
+                 onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+            <div class="lb-photo-fallback"><span>${esc(inits)}</span></div>
           </div>
-          <div class="leaderboard-name">${esc(cand.name || r.name || '')}</div>
-          <div class="leaderboard-club">${esc(cand.club || r.club || '')}</div>
-          <div class="leaderboard-bar-wrap">
-            <div class="leaderboard-bar" style="width:${pct}%"></div>
+          <div class="lb-player-info">
+            <div class="leaderboard-name">${esc(cand.name || r.name || '')}</div>
+            <div class="leaderboard-club">${esc(cand.club || r.club || '')}</div>
           </div>
-          <div class="leaderboard-votes">${r.votes || 0} VOTES</div>
+          <div class="lb-bar-wrap">
+            <div class="lb-bar" style="width:${pct}%"></div>
+          </div>
+          <div class="leaderboard-votes">${voteLabel}</div>
         </div>`;
     }).join('');
 
@@ -407,11 +413,16 @@ function renderLeaderboard(resultsArray, candidatesData) {
     const progressWrap = document.getElementById('progressWrap');
     if (progressWrap) progressWrap.style.display = 'none';
 
-    // Keep ballonDorSection visible for the header
+    // Hide voting section entirely so we don't have redundant headers
     const section = document.getElementById('ballonDorSection');
-    if (section) section.style.display = 'block';
+    if (section) section.style.display = 'none';
 
-    // Populate result box
+    // Hide decryption panel since phase is over
+    const decryptPanel = document.getElementById('decryptPanel');
+    if (decryptPanel) decryptPanel.style.display = 'none';
+    const decryptDivider = document.getElementById('decryptDivider');
+    if (decryptDivider) decryptDivider.style.display = 'none';
+
     const resultBox = document.getElementById('resultBox');
     if (resultBox) {
         resultBox.classList.add('show');
@@ -421,7 +432,7 @@ function renderLeaderboard(resultsArray, candidatesData) {
         }
     }
 
-    addLog('🏆 Election complete — results revealed!', 'ok');
+    addLog('Election complete — final results revealed.', 'ok');
 }
 
 // ── Partial decryption ────────────────────────────────────────
