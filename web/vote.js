@@ -23,17 +23,20 @@ let leaderboardRendered    = false;  // guard against double-render
 
 // ── Init ──────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
-    // Show voter ID in header tag if available
+    // Show voter ID in header tag if available (after registration)
     fetch(CLIENT_BASE + '/health')
         .then(r => r.json())
         .then(s => {
             const tag = document.getElementById('voterTag');
             if (s.voter && tag) tag.textContent = s.voter.toUpperCase();
+            // If already registered in this session (e.g. page refresh), skip registration
+            if (s.is_registered && s.voter) {
+                showVotingView(s.voter);
+            }
         })
         .catch(() => {});
 
-    addLog('System ready. Loading candidates...', 'info');
-    loadCandidates();
+    addLog('System ready. Please complete voter registration.', 'info');
     startPolling();
 });
 
@@ -56,6 +59,90 @@ function initials(name) {
         .join('')
         .substring(0, 2)
         .toUpperCase();
+}
+
+// ── Registration form handler ─────────────────────────────────
+async function submitRegistration(event) {
+    event.preventDefault();
+
+    const btn      = document.getElementById('regSubmitBtn');
+    const btnLabel = document.getElementById('regBtnLabel');
+    const errBox   = document.getElementById('regError');
+    const sucBox   = document.getElementById('regSuccess');
+
+    // Hide previous errors
+    errBox.style.display = 'none';
+
+    const cccd    = document.getElementById('reg_cccd').value.trim();
+    const name    = document.getElementById('reg_name').value.trim();
+    const dob     = document.getElementById('reg_dob').value;
+    const phone   = document.getElementById('reg_phone').value.trim();
+    const address = document.getElementById('reg_address').value.trim();
+
+    // Client-side CCCD format check
+    if (!/^\d{12}$/.test(cccd)) {
+        showRegError('CCCD must be exactly 12 digits.');
+        document.getElementById('reg_cccd').classList.add('error');
+        return;
+    }
+    document.getElementById('reg_cccd').classList.remove('error');
+
+    // Disable button and show spinner
+    btn.disabled = true;
+    btnLabel.innerHTML = '<span class="spinner"></span> Generating Keys…';
+    addLog('Submitting registration… (generating cryptographic keys, please wait)', 'info');
+
+    try {
+        const res  = await fetch(CLIENT_BASE + '/client-register', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({ full_name: name, cccd, dob, address, phone })
+        });
+        const data = await res.json();
+
+        if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+        addLog(`✓ Registration complete. Voter ID: ${data.voter_id}`, 'ok');
+
+        // Show success state inside the card
+        const form = document.getElementById('regForm');
+        if (form) form.style.display = 'none';
+        sucBox.style.display = 'block';
+        const sucId = document.getElementById('regSuccessId');
+        if (sucId) sucId.textContent = `Voter ID: ${data.voter_id}`;
+
+        // After a short delay, reveal the voting view
+        setTimeout(() => showVotingView(data.voter_id), 1800);
+
+    } catch (err) {
+        btn.disabled = false;
+        btnLabel.innerHTML = '🔐 Verify &amp; Register';
+        showRegError(err.message);
+        addLog(`Registration failed: ${err.message}`, 'err');
+    }
+}
+
+function showRegError(msg) {
+    const errBox = document.getElementById('regError');
+    if (errBox) {
+        errBox.textContent = '⚠️  ' + msg;
+        errBox.style.display = 'block';
+    }
+}
+
+function showVotingView(voterId) {
+    // Update voter tag in nav
+    const tag = document.getElementById('voterTag');
+    if (tag && voterId) tag.textContent = voterId.toUpperCase();
+
+    // Hide registration section, reveal voting view
+    const regSection = document.getElementById('registrationSection');
+    if (regSection) regSection.style.display = 'none';
+    const votingView = document.getElementById('votingView');
+    if (votingView) votingView.style.display = 'block';
+
+    addLog('Registration gate cleared. Loading ballot…', 'info');
+    loadCandidates();
 }
 
 // ── Load candidates ───────────────────────────────────────────

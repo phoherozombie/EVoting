@@ -31,6 +31,7 @@ const JOINT_PK = path.join(DIRS.keys, 'joint_pk.bin');
 const ENC_TALLY = path.join(DIRS.tally, 'enc_tally.bin');
 const FINAL_RESULT = path.join(DIRS.tally, 'final_result.txt');
 const CANDIDATES_FILE = path.join(DATA_DIR, 'candidates.json');
+const VOTERS_FILE = path.join(DIRS.voters, 'voters.json');
 
 // ── Helpers ───────────────────────────────────────────────────
 function loadCandidates() {
@@ -55,6 +56,28 @@ function saveState(s) {
 function readVoterList() {
     if (!fs.existsSync(VOTER_LIST)) return [];
     return fs.readFileSync(VOTER_LIST, 'utf8').split('\n').map(s => s.trim()).filter(Boolean);
+}
+
+// ── Identity DB helpers ───────────────────────────────────────
+function loadVoters() {
+    try { return JSON.parse(fs.readFileSync(VOTERS_FILE, 'utf8')); } catch { return []; }
+}
+function saveVoters(list) {
+    fs.mkdirSync(path.dirname(VOTERS_FILE), { recursive: true });
+    fs.writeFileSync(VOTERS_FILE, JSON.stringify(list, null, 2));
+}
+function getAge(dob) {
+    // dob: 'YYYY-MM-DD'
+    const today = new Date();
+    const birth = new Date(dob);
+    if (isNaN(birth.getTime())) return -1;
+    let age = today.getFullYear() - birth.getFullYear();
+    const m = today.getMonth() - birth.getMonth();
+    if (m < 0 || (m === 0 && today.getDate() < birth.getDate())) age--;
+    return age;
+}
+function validateCCCD(cccd) {
+    return /^\d{12}$/.test(cccd);
 }
 
 function runBinaryAsync(name, args = []) {
@@ -185,29 +208,64 @@ app.post('/register', (req, res) => {
     const st = loadState();
     if (st.finalized) return res.status(409).json({ error: 'Registration is closed. Election finalized.' });
 
-    let { fullName, cccd, voterId } = req.body;
-    if (!voterId) voterId = `voter_${Date.now()}`;
-    const id = voterId.trim().replace(/[^a-zA-Z0-9_-]/g, '_');
+    const { full_name, cccd, dob, address, phone } = req.body;
 
-    // Make sure voter isn't already registered
-    const existing = readVoterList();
-    if (existing.includes(id) || Object.values(TOKENS).includes(id)) {
-        return res.status(409).json({ error: `'${id}' is already registered or currently registering.` });
-    }
+    // ── Validation ────────────────────────────────────────────
+    if (!full_name || !full_name.trim())
+        return res.status(400).json({ error: 'full_name is required.' });
+    if (!cccd)
+        return res.status(400).json({ error: 'cccd is required.' });
+    if (!validateCCCD(cccd))
+        return res.status(400).json({ error: 'cccd must be exactly 12 digits.' });
+    if (!dob)
+        return res.status(400).json({ error: 'dob (date of birth, YYYY-MM-DD) is required.' });
+    if (!address || !address.trim())
+        return res.status(400).json({ error: 'address is required.' });
 
-    // Generate JWT token
+    const age = getAge(dob);
+    if (age < 0)
+        return res.status(400).json({ error: 'dob is not a valid date.' });
+    if (age < 18)
+        return res.status(400).json({ error: `Voter must be at least 18 years old (current age: ${age}).` });
+
+    // ── Uniqueness checks ─────────────────────────────────────
+    const voters = loadVoters();
+    if (voters.some(v => v.cccd === cccd))
+        return res.status(409).json({ error: 'This CCCD is already registered.' });
+
+    // Derive a unique, anonymised voter_id from the CCCD hash
+    const voterId = 'voter_' + crypto.createHash('sha256').update(cccd).digest('hex').slice(0, 8);
+    if (voters.some(v => v.voter_id === voterId) || Object.values(TOKENS).includes(voterId))
+        return res.status(409).json({ error: 'Voter ID collision — please contact admin.' });
+
+    // ── Persist identity record ───────────────────────────────
+    const record = {
+        voter_id: voterId,
+        cccd,
+        full_name: full_name.trim(),
+        dob,
+        address: address.trim(),
+        phone: (phone || '').trim() || null,
+        registered_at: new Date().toISOString(),
+        has_voted: false
+    };
+    voters.push(record);
+    saveVoters(voters);
+
+    // ── Issue Eligibility Token ───────────────────────────────
     const token = crypto.randomBytes(32).toString('hex');
-    TOKENS[token] = id; // map token to voterId
+    TOKENS[token] = voterId;
 
-    const isFirst = existing.length === 0 ? 1 : 0;
-    console.log(`[register] Generated token for voter: ${id} (isFirst: ${isFirst})`);
+    const existingKeys = readVoterList();
+    const isFirst = existingKeys.length === 0 ? 1 : 0;
+    console.log(`[register] New voter registered: ${voterId} | Name: ${full_name.trim()} (age ${age}, isFirst: ${isFirst})`);
 
     res.json({
         status: 'ok',
-        message: 'Token generated. Client must now upload PK.',
-        voterId: id,
-        token: token,
-        isFirst: isFirst
+        message: 'Registration successful. Token generated. Client must now upload PK.',
+        voter_id: voterId,
+        token,
+        isFirst
     });
 });
 
@@ -286,8 +344,49 @@ app.post('/vote', authenticate, (req, res) => {
     fs.writeFileSync(voteFile, req.body);
     console.log(`[vote] Received encrypted vote from ${voterId}`);
 
+    // Mark has_voted in identity DB
+    const voters = loadVoters();
+    const voterRecord = voters.find(v => v.voter_id === voterId);
+    if (voterRecord) {
+        voterRecord.has_voted = true;
+        saveVoters(voters);
+    }
+
     const count = fs.readdirSync(DIRS.ciphertexts).filter(f => f.endsWith('.bin')).length;
     res.json({ status: 'ok', message: 'Encrypted vote recorded.', count });
+});
+
+// ── Admin: voter registry endpoints ──────────────────────────
+app.get('/voters', (req, res) => {
+    const voters = loadVoters();
+    // Mask CCCD for privacy (show only last 4 digits)
+    const masked = voters.map(v => ({
+        voter_id: v.voter_id,
+        full_name: v.full_name,
+        cccd_masked: '••••••••' + v.cccd.slice(-4),
+        dob: v.dob,
+        address: v.address,
+        registered_at: v.registered_at,
+        has_voted: v.has_voted
+    }));
+    res.json({ count: masked.length, voters: masked });
+});
+
+app.get('/voter/:id', (req, res) => {
+    const voters = loadVoters();
+    const voter = voters.find(v => v.voter_id === req.params.id);
+    if (!voter) return res.status(404).json({ error: 'Voter not found.' });
+    // Return masked version
+    res.json({
+        voter_id: voter.voter_id,
+        full_name: voter.full_name,
+        cccd_masked: '••••••••' + voter.cccd.slice(-4),
+        dob: voter.dob,
+        address: voter.address,
+        phone: voter.phone ? '••••' + voter.phone.slice(-4) : null,
+        registered_at: voter.registered_at,
+        has_voted: voter.has_voted
+    });
 });
 
 app.post('/tally', async (req, res) => {
@@ -373,6 +472,7 @@ app.post('/reset', async (req, res) => {
     if (fs.existsSync(STATE_FILE)) fs.unlinkSync(STATE_FILE);
     if (fs.existsSync(CANDIDATES_FILE)) fs.unlinkSync(CANDIDATES_FILE);
     for (let key in TOKENS) delete TOKENS[key];
+    // voters.json is in DIRS.voters and gets cleared by the loop above
 
     console.log('[reset] All data cleared. Running setup...');
     try {

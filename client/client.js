@@ -113,70 +113,62 @@ function resetLocalState() {
     isFirstVoter = false;
 }
 
-async function runRegistrationLoop() {
-    while (!isRegistered) {
-        try {
-            console.log(`[${VOTER_ID}] Attempting registration with server at ${SERVER_URL}...`);
-            const res = await fetch(`${SERVER_URL}/register`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ voterId: VOTER_ID, fullName: VOTER_ID, cccd: VOTER_ID })
-            });
-            if (!res.ok) {
-                const data = await res.json();
-                console.error(`[${VOTER_ID}] Registration endpoint returned error:`, data.error);
-                await new Promise(r => setTimeout(r, 5000));
-                continue;
-            }
-            const data = await res.json();
-            authToken = data.token;
-            isFirstVoter = data.isFirst === 1;
-            console.log(`[${VOTER_ID}] Registered. Token acquired. isFirst: ${isFirstVoter}`);
+async function registerVoter(full_name, cccd, dob, address, phone) {
+    if (isRegistered) throw new Error('Already registered in this session.');
 
-            ensureDirectories();
-            const tempJointPk = path.join(KEYS_DIR, 'temp_joint_pk.bin');
-            if (!isFirstVoter) {
-                console.log(`[${VOTER_ID}] Downloading current joint_pk.bin from server...`);
-                const jointPkBuf = await fetchBinary(`${SERVER_URL}/joint_pk`);
-                fs.writeFileSync(tempJointPk, jointPkBuf);
-                console.log(`[${VOTER_ID}] Joint PK downloaded (${jointPkBuf.length} bytes)`);
-            }
+    console.log(`[${VOTER_ID}] Attempting registration with server at ${SERVER_URL}...`);
+    const res = await fetch(`${SERVER_URL}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ full_name, cccd, dob, address, phone })
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
 
-            const outSk = path.join(KEYS_DIR, 'secret_key.bin');
-            const outPk = path.join(KEYS_DIR, 'public_key.bin');
-            const paramsFile = path.join(ROOT, 'params', 'crypto_params.bin');
-            const dummyPk = path.join(KEYS_DIR, 'dummy.bin');
-            if (isFirstVoter) {
-                fs.writeFileSync(dummyPk, Buffer.alloc(0)); // dummy file
-            }
+    authToken   = data.token;
+    // Support both old (voterId) and new (voter_id) field name
+    const resolvedId = data.voter_id || data.voterId;
+    isFirstVoter = data.isFirst === 1;
+    console.log(`[${resolvedId}] Registered. Token acquired. isFirst: ${isFirstVoter}`);
 
-            console.log(`[${VOTER_ID}] Running voter_keygen binary...`);
-            runBinary('voter_keygen', [
-                VOTER_ID,
-                isFirstVoter ? '1' : '0',
-                isFirstVoter ? dummyPk : tempJointPk,
-                outSk,
-                outPk,
-                paramsFile
-            ]);
-
-            console.log(`[${VOTER_ID}] Uploading public key share to server...`);
-            const pkBuf = fs.readFileSync(outPk);
-            await postBinary(`${SERVER_URL}/upload_pk`, pkBuf, {
-                'Authorization': `Bearer ${authToken}`
-            });
-
-            isRegistered = true;
-            console.log(`[${VOTER_ID}] ✓ Registration and key generation complete.`);
-        } catch (err) {
-            console.error(`[${VOTER_ID}] Registration / Keygen failed:`, err.message);
-            await new Promise(r => setTimeout(r, 5000));
-        }
+    ensureDirectories();
+    const tempJointPk = path.join(KEYS_DIR, 'temp_joint_pk.bin');
+    if (!isFirstVoter) {
+        console.log(`[${resolvedId}] Downloading current joint_pk.bin from server...`);
+        const jointPkBuf = await fetchBinary(`${SERVER_URL}/joint_pk`);
+        fs.writeFileSync(tempJointPk, jointPkBuf);
+        console.log(`[${resolvedId}] Joint PK downloaded (${jointPkBuf.length} bytes)`);
     }
+
+    const outSk = path.join(KEYS_DIR, 'secret_key.bin');
+    const outPk = path.join(KEYS_DIR, 'public_key.bin');
+    const paramsFile = path.join(ROOT, 'params', 'crypto_params.bin');
+    const dummyPk = path.join(KEYS_DIR, 'dummy.bin');
+    if (isFirstVoter) {
+        fs.writeFileSync(dummyPk, Buffer.alloc(0));
+    }
+
+    console.log(`[${resolvedId}] Running voter_keygen binary...`);
+    runBinary('voter_keygen', [
+        resolvedId,
+        isFirstVoter ? '1' : '0',
+        isFirstVoter ? dummyPk : tempJointPk,
+        outSk,
+        outPk,
+        paramsFile
+    ]);
+
+    console.log(`[${resolvedId}] Uploading public key share to server...`);
+    const pkBuf = fs.readFileSync(outPk);
+    await postBinary(`${SERVER_URL}/upload_pk`, pkBuf, {
+        'Authorization': `Bearer ${authToken}`
+    });
+
+    isRegistered = true;
+    console.log(`[${resolvedId}] ✓ Registration and key generation complete.`);
+    return { voter_id: resolvedId, isFirst: isFirstVoter };
 }
 
-// Start registration loop in background on startup
-runRegistrationLoop();
 
 // ── GET /health ───────────────────────────────────────────────
 app.get('/health', (_req, res) => {
@@ -233,8 +225,6 @@ app.get('/status', async (_req, res) => {
             if (isRegistered && !voters.includes(VOTER_ID)) {
                 console.log(`[${VOTER_ID}] Detected server reset (not in voter list). Resetting local client state.`);
                 resetLocalState();
-                // trigger re-registration
-                runRegistrationLoop();
                 local.is_registered = false;
                 local.keys_generated = false;
                 local.vote_encrypted = false;
@@ -248,6 +238,33 @@ app.get('/status', async (_req, res) => {
     } catch (_) { /* server unreachable */ }
 
     res.json(local);
+});
+
+// ── POST /client-register ────────────────────────────────────
+// Bridge: browser submits voter PII → we call tally server → run keygen → upload PK
+app.post('/client-register', async (req, res) => {
+    if (isRegistered) {
+        return res.status(409).json({ error: 'Already registered in this session.' });
+    }
+
+    const { full_name, cccd, dob, address, phone } = req.body;
+    // Basic presence checks (full validation is done server-side)
+    if (!full_name || !cccd || !dob || !address) {
+        return res.status(400).json({ error: 'full_name, cccd, dob, and address are required.' });
+    }
+
+    try {
+        const result = await registerVoter(full_name, cccd, dob, address, phone);
+        res.json({
+            status: 'ok',
+            message: 'Voter registered and keys generated successfully.',
+            voter_id: result.voter_id,
+            isFirst: result.isFirst
+        });
+    } catch (err) {
+        console.error(`[client-register] ERROR:`, err.message);
+        res.status(400).json({ error: err.message });
+    }
 });
 
 // ── POST /vote ───────────────────────────────────────────────

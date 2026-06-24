@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Ballon d'Or — Official Ballot</title>
-  <meta name="description" content="The official Ballon d'Or electronic ballot. Your vote is encrypted end-to-end using Multi-Key Fully Homomorphic Encryption.">
+  <title>E-Voting System — Voter Registration & Ballot</title>
+  <meta name="description" content="Secure electronic voting with Multi-Key Fully Homomorphic Encryption. Register with your CCCD and cast your encrypted ballot.">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,700;0,800;1,700&family=Inter:wght@300;400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <style>
@@ -818,6 +818,175 @@
     }
 
     /* ─────────────────────────────────────────────
+       REGISTRATION FORM
+    ───────────────────────────────────────────── */
+    #registrationSection {
+      max-width: 520px;
+      margin: var(--sp-10) auto var(--sp-6);
+    }
+    .reg-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-xl);
+      padding: var(--sp-8);
+      box-shadow: 0 8px 40px rgba(0,0,0,0.35);
+    }
+    .reg-header {
+      text-align: center;
+      margin-bottom: var(--sp-8);
+    }
+    .reg-icon {
+      font-size: 2rem;
+      margin-bottom: var(--sp-3);
+    }
+    .reg-title {
+      font-family: var(--serif);
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-bottom: var(--sp-2);
+    }
+    .reg-subtitle {
+      font-size: 0.82rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .form-row {
+      margin-bottom: var(--sp-4);
+    }
+    .form-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: var(--sp-4);
+      margin-bottom: var(--sp-4);
+    }
+    .form-label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: var(--sp-2);
+    }
+    .form-label .req { color: var(--gold); margin-left: 2px; }
+    .form-input {
+      display: block;
+      width: 100%;
+      background: var(--surface-2);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-md);
+      color: var(--text-primary);
+      font-family: var(--sans);
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color var(--t-fast), box-shadow var(--t-fast);
+    }
+    .form-input::placeholder { color: var(--text-muted); }
+    .form-input:focus {
+      border-color: var(--gold);
+      box-shadow: 0 0 0 3px rgba(201,168,76,0.15);
+    }
+    .form-input.error { border-color: var(--error); }
+    .form-hint {
+      font-size: 0.7rem;
+      color: var(--text-muted);
+      margin-top: var(--sp-1);
+    }
+    .reg-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: var(--sp-5) 0;
+    }
+    #regError {
+      display: none;
+      background: rgba(224,82,82,0.1);
+      border: 1px solid rgba(224,82,82,0.3);
+      border-radius: var(--r-md);
+      padding: var(--sp-3) var(--sp-4);
+      color: var(--error);
+      font-size: 0.82rem;
+      margin-bottom: var(--sp-4);
+      animation: fadeUp 0.2s ease;
+    }
+    #regSuccess {
+      display: none;
+      background: var(--success-bg);
+      border: 1px solid rgba(76,175,130,0.25);
+      border-radius: var(--r-md);
+      padding: var(--sp-4) var(--sp-5);
+      text-align: center;
+      animation: fadeUp 0.3s ease;
+    }
+    .reg-success-icon { font-size: 1.8rem; margin-bottom: var(--sp-2); }
+    .reg-success-title {
+      font-weight: 600;
+      color: var(--success);
+      font-size: 1rem;
+      margin-bottom: var(--sp-2);
+    }
+    .reg-success-sub {
+      font-size: 0.78rem;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .reg-success-id {
+      display: inline-block;
+      margin-top: var(--sp-3);
+      font-family: var(--mono);
+      font-size: 0.72rem;
+      background: var(--surface-3);
+      border: 1px solid var(--border-2);
+      border-radius: var(--r-sm);
+      padding: 3px 10px;
+      color: var(--gold);
+    }
+    .btn-register {
+      background: linear-gradient(135deg, var(--gold-dark), var(--gold));
+      color: #0e0e0e;
+      border: none;
+      width: 100%;
+      padding: 14px;
+      border-radius: var(--r-md);
+      font-size: 0.9rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      cursor: pointer;
+      transition: all var(--t-fast);
+      margin-top: var(--sp-4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: var(--sp-2);
+    }
+    .btn-register:hover:not(:disabled) {
+      background: linear-gradient(135deg, var(--gold), var(--gold-light));
+      box-shadow: 0 4px 20px rgba(201,168,76,0.3);
+      transform: translateY(-1px);
+    }
+    .btn-register:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none;
+    }
+    .spinner {
+      display: inline-block;
+      width: 14px; height: 14px;
+      border: 2px solid rgba(0,0,0,0.3);
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Fade between registration and voting views */
+    #votingView {
+      display: none;
+      animation: fadeUp 0.4s ease;
+    }
+
+    /* ─────────────────────────────────────────────
        RESPONSIVE
     ───────────────────────────────────────────── */
     @media (max-width: 900px) {
@@ -833,6 +1002,7 @@
         grid-template-columns: 36px 44px 1fr auto;
       }
       .lb-bar-wrap { display: none; }
+      .form-row-2 { grid-template-columns: 1fr; }
     }
     @media (max-width: 440px) {
       .candidate-grid { grid-template-columns: repeat(2, 1fr); }
@@ -860,10 +1030,10 @@
 
   <!-- ── Hero ── -->
   <div class="hero">
-    <div class="hero-eyebrow">France Football · 2024 Edition</div>
-    <h1 class="hero-title">Vote for the<br><em>Ballon d'Or</em></h1>
+    <div class="hero-eyebrow">Secure E-Voting · MK-FHE Powered</div>
+    <h1 class="hero-title">Cast Your <em>Encrypted</em><br>Ballot</h1>
     <p class="hero-subtitle">
-      Select your candidate. Your ballot is encrypted on this device and only the aggregate tally is ever revealed.
+      Register with your Citizen ID. Your vote is encrypted on this device — only the aggregate tally is ever revealed.
     </p>
     <div class="hero-badges">
       <span class="badge badge-gold">
@@ -878,8 +1048,73 @@
   <!-- ── Main Content ── -->
   <main class="main">
 
-    <!-- ══ CANDIDATE SELECTION SECTION ══ -->
-    <div id="ballonDorSection" style="display:none">
+    <!-- ══ STEP 1: VOTER REGISTRATION SECTION ══ -->
+    <div id="registrationSection">
+      <div class="reg-card">
+        <div class="reg-header">
+          <div class="reg-icon">🪪</div>
+          <div class="reg-title">Voter Registration</div>
+          <p class="reg-subtitle">Please provide your citizen information to verify eligibility before casting your ballot.</p>
+        </div>
+
+        <!-- Error / Success messages -->
+        <div id="regError"></div>
+        <div id="regSuccess">
+          <div class="reg-success-icon">✅</div>
+          <div class="reg-success-title">Registration Successful</div>
+          <p class="reg-success-sub">Your identity has been verified and cryptographic keys have been generated. You may now cast your ballot.</p>
+          <span class="reg-success-id" id="regSuccessId"></span>
+        </div>
+
+        <!-- Registration Form -->
+        <form id="regForm" onsubmit="submitRegistration(event)">
+          <div class="form-row">
+            <label class="form-label" for="reg_cccd">CCCD (Citizen ID) <span class="req">*</span></label>
+            <input id="reg_cccd" class="form-input" type="text" inputmode="numeric"
+              placeholder="012345678901" maxlength="12" pattern="\d{12}" autocomplete="off" required>
+            <div class="form-hint">Exactly 12 digits — your national citizen ID number.</div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label" for="reg_name">Full Name <span class="req">*</span></label>
+            <input id="reg_name" class="form-input" type="text"
+              placeholder="Nguyen Van A" autocomplete="name" required>
+          </div>
+
+          <div class="form-row-2">
+            <div>
+              <label class="form-label" for="reg_dob">Date of Birth <span class="req">*</span></label>
+              <input id="reg_dob" class="form-input" type="date"
+                max="2007-12-31" required>
+              <div class="form-hint">Must be 18 or older.</div>
+            </div>
+            <div>
+              <label class="form-label" for="reg_phone">Phone <span style="color:var(--text-muted)">optional</span></label>
+              <input id="reg_phone" class="form-input" type="tel"
+                placeholder="0901234567" autocomplete="tel">
+            </div>
+          </div>
+
+          <div class="form-row">
+            <label class="form-label" for="reg_address">Address <span class="req">*</span></label>
+            <input id="reg_address" class="form-input" type="text"
+              placeholder="123 Le Duan, Da Nang" autocomplete="street-address" required>
+          </div>
+
+          <hr class="reg-divider">
+
+          <button id="regSubmitBtn" class="btn-register" type="submit">
+            <span id="regBtnLabel">🔐 Verify &amp; Register</span>
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ══ STEP 2: VOTING VIEW (hidden until registered) ══ -->
+    <div id="votingView">
+
+      <!-- ══ CANDIDATE SELECTION SECTION ══ -->
+      <div id="ballonDorSection" style="display:none">
 
       <div class="section-head">
         <h2 class="section-title">Nominees — 2024</h2>
@@ -947,10 +1182,13 @@
       <div class="result-header">
         <div class="result-trophy">🏆</div>
         <h2 class="result-title">Final Results</h2>
-        <p class="result-subtitle">Ballon d'Or 2024 — Verified Tally</p>
+        <p class="result-subtitle">E-Voting 2024 — Verified Tally</p>
       </div>
       <div id="leaderboardContainer"></div>
     </div>
+
+    </div>
+    <!-- ══ END VOTING VIEW ══ -->
 
     <!-- ── Activity Log ── -->
     <div class="log-section">
@@ -963,7 +1201,7 @@
   <!-- ── Footer ── -->
   <footer class="footer">
     <div class="footer-left">
-      <strong>Ballon d'Or Secure E-Voting</strong> — Privacy-preserving ballot powered by Multi-Key FHE
+      <strong>Secure E-Voting System</strong> — Privacy-preserving ballot powered by Multi-Key FHE
     </div>
     <div class="footer-right">OpenFHE 1.5.0 · C++17 · Node.js · Threshold Decryption</div>
   </footer>

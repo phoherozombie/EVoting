@@ -125,26 +125,38 @@ async function run() {
         // -----------------------------------------------------------------
         console.log("== 2. Testing Registration, Keygen, and PK upload ==");
         
-        const voters = [
-            { id: 'voter1', name: 'Alice', voteIndex: 1 }, // Votes for candidate 1
-            { id: 'voter2', name: 'Bob', voteIndex: 1 },   // Votes for candidate 1
-            { id: 'voter3', name: 'Charlie', voteIndex: 0 } // Votes for candidate 0
+        const voterInputs = [
+            { name: 'Nguyen Van A', cccd: '012345678901', dob: '1995-03-15', address: 'Da Nang', phone: '0901111111', voteIndex: 1 }, // YES
+            { name: 'Tran Thi B',  cccd: '023456789012', dob: '1990-07-20', address: 'Ha Noi',  phone: '0902222222', voteIndex: 1 }, // YES
+            { name: 'Le Van C',    cccd: '034567890123', dob: '1988-12-05', address: 'HCM',     phone: null,          voteIndex: 0 }  // NO
         ];
 
-        for (let i = 0; i < voters.length; i++) {
-            const voter = voters[i];
+        const voters = [];
+
+        for (let i = 0; i < voterInputs.length; i++) {
+            const inp = voterInputs[i];
+            console.log(`Registering ${inp.name}...`);
+            const regRes = await request('/register', 'POST', {
+                full_name: inp.name,
+                cccd:      inp.cccd,
+                dob:       inp.dob,
+                address:   inp.address,
+                phone:     inp.phone
+            });
+            assert(regRes.statusCode === 200, `Registered ${inp.name}`);
+
+            const voter = {
+                id:        regRes.data.voter_id,
+                name:      inp.name,
+                cccd:      inp.cccd,
+                token:     regRes.data.token,
+                isFirst:   regRes.data.isFirst === 1,
+                voteIndex: inp.voteIndex
+            };
+            voters.push(voter);
+
             const voterDir = path.join(TEST_DATA_DIR, voter.id);
             fs.mkdirSync(voterDir, { recursive: true });
-
-            console.log(`Registering ${voter.name} (${voter.id})...`);
-            const regRes = await request('/register', 'POST', {
-                voterId: voter.id,
-                fullName: voter.name,
-                cccd: `12345678901${i}`
-            });
-            assert(regRes.statusCode === 200, `Registered ${voter.id}`);
-            voter.token = regRes.data.token;
-            voter.isFirst = regRes.data.isFirst === 1;
 
             // Generate keys locally
             const skPath = path.join(voterDir, 'secret_key.bin');
@@ -177,7 +189,7 @@ async function run() {
 
             // Verify server directory contains no secret keys
             const serverKeysDir = path.join(ROOT, 'server', 'data', 'keys');
-            const hasServerSk = fs.readdirSync(serverKeysDir).some(f => f.includes('sk_') || f.includes(voter.id + '.sk') || f.includes('secret'));
+            const hasServerSk = fs.readdirSync(serverKeysDir).some(f => f.includes('sk_') || f.includes('secret'));
             assert(!hasServerSk, `Cryptographic isolation: Server does NOT store secret key for ${voter.id}`);
 
             console.log(`Uploading public key share for ${voter.id}...`);
@@ -187,6 +199,13 @@ async function run() {
             });
             assert(uploadPkRes.statusCode === 200, `Uploaded PK share for ${voter.id}`);
         }
+
+        // Verify voters.json was written
+        const votersDbPath = path.join(ROOT, 'server', 'data', 'voters', 'voters.json');
+        assert(fs.existsSync(votersDbPath), 'voters.json was persisted to disk');
+        const votersDb = JSON.parse(fs.readFileSync(votersDbPath, 'utf8'));
+        assert(votersDb.length === 3, `voters.json contains 3 records (got ${votersDb.length})`);
+        assert(votersDb[0].has_voted === false, 'has_voted is false before voting');
         console.log("✓ Success Case: Registration & Local Keygen verified.\n");
 
         // -----------------------------------------------------------------
@@ -194,12 +213,43 @@ async function run() {
         // -----------------------------------------------------------------
         console.log("== 3. Testing Registration Phase Failure Cases ==");
         
-        // Failure: Register duplicate voter ID
+        // Failure: Register duplicate CCCD
         try {
-            await request('/register', 'POST', { voterId: 'voter1', fullName: 'Alice Duplicate', cccd: '111' });
-            assert(false, "Should not allow duplicate registration");
+            await request('/register', 'POST', {
+                full_name: 'Duplicate Person',
+                cccd: '012345678901', // same as voter 0
+                dob: '1990-01-01',
+                address: 'Some City'
+            });
+            assert(false, "Should not allow duplicate CCCD");
         } catch (err) {
-            assert(err.statusCode === 409, `Rejected duplicate registration (status ${err.statusCode})`);
+            assert(err.statusCode === 409, `Rejected duplicate CCCD (status ${err.statusCode})`);
+        }
+
+        // Failure: Register with invalid CCCD (not 12 digits)
+        try {
+            await request('/register', 'POST', {
+                full_name: 'Invalid Person',
+                cccd: '123', // too short
+                dob: '1990-01-01',
+                address: 'Some City'
+            });
+            assert(false, "Should reject invalid CCCD");
+        } catch (err) {
+            assert(err.statusCode === 400, `Rejected invalid CCCD (status ${err.statusCode})`);
+        }
+
+        // Failure: Register underage voter
+        try {
+            await request('/register', 'POST', {
+                full_name: 'Young Person',
+                cccd: '099988877766',
+                dob: '2015-01-01', // 9 years old
+                address: 'Some City'
+            });
+            assert(false, "Should reject underage voter");
+        } catch (err) {
+            assert(err.statusCode === 400, `Rejected underage voter (status ${err.statusCode})`);
         }
 
         // Failure: Upload PK without token
@@ -220,9 +270,7 @@ async function run() {
             assert(err.statusCode === 401, `Rejected PK upload with invalid token (status ${err.statusCode})`);
         }
 
-        // Failure: Spoofed voterId during PK upload
-        // In our system, the token maps to voterId directly, making spoofing impossible.
-        // If voter1 tries to upload PK again, they get rejected
+        // Failure: Spoofed voterId during PK upload — duplicate PK from same voter
         try {
             await request('/upload_pk', 'POST', Buffer.from('dummy-pk-bytes'), {
                 'Authorization': `Bearer ${voters[0].token}`
@@ -253,7 +301,12 @@ async function run() {
 
         // Failure: Register after finalize
         try {
-            await request('/register', 'POST', { voterId: 'voter4', fullName: 'Dave', cccd: '444' });
+            await request('/register', 'POST', {
+                full_name: 'Dave Late',
+                cccd: '099911122233',
+                dob: '1985-06-01',
+                address: 'Can Tho'
+            });
             assert(false, "Should reject registration after finalize");
         } catch (err) {
             assert(err.statusCode === 409, `Rejected registration after finalize (status ${err.statusCode})`);
@@ -479,11 +532,19 @@ async function run() {
         assert(cand0Votes === 1, `Candidate 0 has exactly 1 vote (got ${cand0Votes})`);
         assert(cand1Votes === 2, `Candidate 1 has exactly 2 votes (got ${cand1Votes})`);
 
+        // Verify has_voted=true in voters.json
+        const votersDbFinal = JSON.parse(fs.readFileSync(path.join(ROOT, 'server', 'data', 'voters', 'voters.json'), 'utf8'));
+        const allVoted = votersDbFinal.every(v => v.has_voted === true);
+        assert(allVoted, 'All voters marked has_voted=true in voters.json');
+
         console.log("\n=============================================================");
         console.log(" 🎉 ALL TESTS PASSED SUCCESSFULLY!                           ");
         console.log(" ✓ Cryptographic separation (Server has no SKs) verified.      ");
         console.log(" ✓ Strict state machine and authentication verified.          ");
-        console.log(" ✓ 8 Success Criteria & 6 Failure Cases verified.             ");
+        console.log(" ✓ CCCD validation (12-digit, unique) verified.               ");
+        console.log(" ✓ Age-gate (>=18) and underage rejection verified.           ");
+        console.log(" ✓ voters.json persistence and has_voted tracking verified.  ");
+        console.log(" ✓ 10 Success Criteria & 8 Failure Cases verified.            ");
         console.log("=============================================================");
 
     } catch (err) {

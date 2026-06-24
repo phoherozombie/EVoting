@@ -50,39 +50,42 @@ echo ""
 echo "── STEP 1: Generate shared CryptoContext"
 "$BIN/setup"
 
-# ── Voter simulation helper ───────────────────────────────────
-simulate_voter() {
-    local VOTER_ID=$1
-    local VOTE=$2   # 1=YES 0=NO
-
-    echo ""
-    echo "── VOTER $VOTER_ID: vote=$([ $VOTE -eq 1 ] && echo YES || echo NO)"
-
-    # Temporarily redirect key/vote paths for this voter
-    mkdir -p "client_${VOTER_ID}/data/keys"
-    mkdir -p "client_${VOTER_ID}/data"
-
-    # Keygen: registers voter and updates joint_pk.bin in server/data/keys
-    "$BIN/voter_keygen" "voter${VOTER_ID}"
-
-    "$BIN/encrypt_vote" "voter${VOTER_ID}" "$VOTE"
-
-    echo "  → Voter ${VOTER_ID} registered and vote recorded."
-}
+PARAMS="$ROOT/params/crypto_params.bin"
+JOINT_PK="$ROOT/server/data/keys/joint_pk.bin"
+mkdir -p "$ROOT/server/data/keys"
 
 # ── Step 2: Registration ──────────────────────────────────────
 echo ""
 echo "── STEP 2: Voter Registration"
 for V in 1 2 3; do
-    "$BIN/voter_keygen" "voter${V}"
+    VOTER_ID="voter${V}"
+    IS_FIRST=$([ $V -eq 1 ] && echo "1" || echo "0")
+    IN_JOINT_PK=$([ $V -eq 1 ] && echo "dummy.bin" || echo "$JOINT_PK")
+    
+    mkdir -p "client_${VOTER_ID}/data/keys"
+    OUT_SK="client_${VOTER_ID}/data/keys/secret_key.bin"
+    OUT_PK="client_${VOTER_ID}/data/keys/public_key.bin"
+    
+    if [ $V -eq 1 ]; then touch dummy.bin; fi
+    
+    "$BIN/voter_keygen" "$VOTER_ID" "$IS_FIRST" "$IN_JOINT_PK" "$OUT_SK" "$OUT_PK" "$PARAMS"
+    
+    # Simulate upload to server by making the new PK the current joint PK
+    cp "$OUT_PK" "$JOINT_PK"
 done
+rm -f dummy.bin
 
 # ── Step 3: Voting ──────────────────────────────────────────
 echo ""
 echo "── STEP 3: Cast Ballots (under FINAL joint key)"
-"$BIN/encrypt_vote" "voter1" 1
-"$BIN/encrypt_vote" "voter2" 1
-"$BIN/encrypt_vote" "voter3" 0
+# voter1 votes YES(1), voter2 votes YES(1), voter3 votes NO(0)
+for V in 1 2 3; do
+    VOTER_ID="voter${V}"
+    VOTE=$([ $V -eq 3 ] && echo "0" || echo "1")
+    OUT_ENC="server/data/ciphertexts/enc_vote_${VOTER_ID}.bin"
+    
+    "$BIN/encrypt_vote" "$VOTE" "$JOINT_PK" "$OUT_ENC" "$PARAMS"
+done
 
 echo ""
 echo "── STEP 4: Homomorphic Tally (server)"
@@ -90,13 +93,18 @@ echo "── STEP 4: Homomorphic Tally (server)"
 
 echo ""
 echo "── STEP 5: Partial Decryption (each voter)"
+TALLY_FILE="server/data/tally/enc_tally.bin"
 
 for V in 1 2 3; do
     echo ""
     echo "  Voter $V partial decrypt..."
-    # voter_partial_decrypt handles lead/main roles automatically based on order
-    "$BIN/voter_partial_decrypt" "voter${V}"
-    echo "  → Share saved: server/data/shares/share_voter${V}.bin"
+    VOTER_ID="voter${V}"
+    IS_LEAD=$([ $V -eq 1 ] && echo "1" || echo "0")
+    IN_SK="client_${VOTER_ID}/data/keys/secret_key.bin"
+    OUT_SHARE="server/data/shares/share_${VOTER_ID}.bin"
+    
+    "$BIN/voter_partial_decrypt" "$VOTER_ID" "$IS_LEAD" "$IN_SK" "$TALLY_FILE" "$OUT_SHARE" "$PARAMS"
+    echo "  → Share saved: $OUT_SHARE"
 done
 
 echo ""
@@ -115,12 +123,12 @@ if [[ -f "$RESULT_FILE" ]]; then
     echo "  Expected: FINAL YES VOTES = 2"
     echo "╚══════════════════════════════════════════════╝"
 
-    if echo "$RESULT" | grep -q "= 2"; then
+    if echo "$RESULT" | grep -q "CANDIDATE_1:2"; then
         echo ""
         echo "✓  TEST PASSED — crypto pipeline is correct!"
     else
         echo ""
-        echo "✗  TEST FAILED — result does not match expected value 2"
+        echo "✗  TEST FAILED — result does not match expected value"
         exit 1
     fi
 else
