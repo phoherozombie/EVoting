@@ -9,7 +9,6 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// ĐƯỜNG DẪN ĐÃ SỬA: Khớp với Project (không dấu cách)
 const BUILD_DIR = '/home/tuyen/Project/evoting-system/EVoting/crypto/src_distributed/build';
 const SERVER_DIR = path.join(BUILD_DIR, 'server');
 
@@ -47,7 +46,9 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         votesReceived++;
         if (votesReceived >= EXPECTED_VOTERS) {
             console.log(`[Server] Đủ phiếu! Đang chạy tally...`);
-            try { execSync('./server_tally', { cwd: BUILD_DIR, stdio: 'inherit' }); } catch (err) {}
+            try { execSync('./server_tally', { cwd: BUILD_DIR, stdio: 'inherit' }); } catch (err) {
+                console.error('Lỗi chạy server_tally:', err.message);
+            }
         }
         res.json({ success: true, server: { count: votesReceived } });
     } 
@@ -59,12 +60,42 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
             console.log(`[Server] Đủ share! Đang chạy fusion...`);
             try {
                 const output = execSync('./server_fusion', { cwd: BUILD_DIR, encoding: 'utf-8' });
-                const match = output.match(/FINAL RESULT = (\d+)/);
-                if (match) finalResult = match[0];
-            } catch (err) {}
+                console.log(output);
+                const match = output.match(/FINAL RESULT = ([\s\S]*)$/);
+                if (match) {
+                     finalResult = match[0].trim();
+                } else {
+                     finalResult = output;
+                }
+            } catch (err) {
+                console.error('Lỗi chạy server_fusion:', err.message);
+            }
         }
         res.json({ success: true, ready_to_combine: ready });
     }
+});
+
+// API reset: Dọn sạch cả bộ nhớ RAM và ổ đĩa cứng
+app.get('/api/reset', (req, res) => {
+    votesReceived = 0;
+    sharesReceived = 0;
+    finalResult = null;
+
+    try {
+        if (fs.existsSync(SERVER_DIR)) {
+            const files = fs.readdirSync(SERVER_DIR);
+            for (const file of files) {
+                if (file.startsWith('vote') || file.startsWith('share') || file === 'tally.bin') {
+                    fs.unlinkSync(path.join(SERVER_DIR, file));
+                }
+            }
+            console.log('[Server] Đã dọn sạch các file vote/share/tally trong server/...');
+        }
+    } catch (err) {
+        console.error('Lỗi khi xóa file lúc reset:', err.message);
+    }
+
+    res.send('Đã reset biến trạng thái và dọn sạch các file rác trên Server.');
 });
 
 const PORT = 3001;

@@ -119,15 +119,19 @@ VOTER_ID=voter1 SERVER_URL=http://192.168.1.100:3001 ./scripts/run_voter.sh
 ```bash
 # Computer 1 (Tally Server):
 ./scripts/run_server.sh
+./scripts/bundle_client.sh # Create evoting_client_bundle.tar.gz
 
-# Computer 2:
-VOTER_ID=voter1 SERVER_URL=http://192.168.1.100:3001 ./scripts/run_voter.sh
+# Computer 2 (Voter 1):
+# Download evoting_client_bundle.tar.gz and extract it
+./run_voter.sh
 
-# Computer 3:
-VOTER_ID=voter2 SERVER_URL=http://192.168.1.100:3001 ./scripts/run_voter.sh
+# Computer 3 (Voter 2):
+# Download evoting_client_bundle.tar.gz and extract it
+VOTER_ID=voter2 ./run_voter.sh
 
-# Computer 4:
-VOTER_ID=voter3 SERVER_URL=http://192.168.1.100:3001 ./scripts/run_voter.sh
+# Computer 4 (Voter 3):
+# Download evoting_client_bundle.tar.gz and extract it
+VOTER_ID=voter3 ./run_voter.sh
 ```
 
 ### Run the guided demo

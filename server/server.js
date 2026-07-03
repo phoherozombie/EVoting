@@ -341,14 +341,17 @@ app.post('/vote', authenticate, (req, res) => {
         return res.status(400).json({ error: 'Binary encrypted vote payload required.' });
     }
 
+    const commitment = req.headers['x-ballot-commitment'] || null;
+
     fs.writeFileSync(voteFile, req.body);
-    console.log(`[vote] Received encrypted vote from ${voterId}`);
+    console.log(`[vote] Received encrypted vote from ${voterId} with commitment: ${commitment}`);
 
     // Mark has_voted in identity DB
     const voters = loadVoters();
     const voterRecord = voters.find(v => v.voter_id === voterId);
     if (voterRecord) {
         voterRecord.has_voted = true;
+        voterRecord.commitment = commitment;
         saveVoters(voters);
     }
 
@@ -459,6 +462,103 @@ app.post('/share', authenticate, async (req, res) => {
 app.get('/result', (req, res) => {
     if (!fs.existsSync(FINAL_RESULT)) return res.status(404).json({ error: 'Result not available.' });
     res.json({ result: fs.readFileSync(FINAL_RESULT, 'utf8').trim() });
+});
+
+// ── AUDIT & BALLOT VALIDITY ENDPOINTS ─────────────────────────
+const REVEALS_FILE = path.join(DIRS.registry, 'reveals.json');
+function loadReveals() {
+    try { return JSON.parse(fs.readFileSync(REVEALS_FILE, 'utf8')); } catch { return []; }
+}
+function saveReveals(list) {
+    fs.writeFileSync(REVEALS_FILE, JSON.stringify(list, null, 2));
+}
+
+app.post('/reveal-ballot', (req, res) => {
+    const { candidateIndex, nonce } = req.body;
+    if (typeof candidateIndex === 'undefined' || !nonce) {
+        return res.status(400).json({ error: 'candidateIndex and nonce are required.' });
+    }
+
+    const commitment = crypto.createHash('sha256').update(candidateIndex + ':' + nonce).digest('hex');
+    const voters = loadVoters();
+    
+    // Find if this commitment matches any voter's registered commitment
+    const match = voters.find(v => v.commitment === commitment);
+    if (!match) {
+        return res.status(400).json({ error: 'Invalid reveal: no matching ballot commitment found.' });
+    }
+
+    // Check if this commitment was already revealed
+    const reveals = loadReveals();
+    if (reveals.some(r => r.commitment === commitment)) {
+        return res.status(409).json({ error: 'This ballot has already been audited.' });
+    }
+
+    reveals.push({
+        candidateIndex: parseInt(candidateIndex, 10),
+        nonce,
+        commitment
+    });
+    saveReveals(reveals);
+
+    console.log(`[audit] Successfully validated and recorded anonymous reveal for commitment: ${commitment}`);
+    res.json({ status: 'ok', message: 'Ballot commitment successfully verified and recorded.' });
+});
+
+app.get('/audit-status', (req, res) => {
+    const voters = loadVoters().filter(v => v.has_voted && v.commitment);
+    const totalCommitments = voters.length;
+    
+    const reveals = loadReveals();
+    const totalReveals = reveals.length;
+    
+    let verification = 'pending';
+    let details = {};
+    
+    if (fs.existsSync(FINAL_RESULT)) {
+        const raw = fs.readFileSync(FINAL_RESULT, 'utf8').trim();
+        const decryptedSum = {};
+        for (const line of raw.split('\n')) {
+            const m = line.match(/^CANDIDATE_(\d+):(\d+)$/);
+            if (m) {
+                decryptedSum[parseInt(m[1], 10)] = parseInt(m[2], 10);
+            }
+        }
+        
+        const revealedSum = {};
+        for (const r of reveals) {
+            revealedSum[r.candidateIndex] = (revealedSum[r.candidateIndex] || 0) + 1;
+        }
+        
+        if (totalReveals === totalCommitments && totalCommitments > 0) {
+            let match = true;
+            const candidates = loadCandidates();
+            for (const cand of candidates) {
+                const decVal = decryptedSum[cand.id] || 0;
+                const revVal = revealedSum[cand.id] || 0;
+                if (decVal !== revVal) {
+                    match = false;
+                }
+            }
+            verification = match ? 'verified' : 'failed';
+        } else if (totalCommitments > 0) {
+            verification = 'pending';
+        } else {
+            verification = 'none';
+        }
+        
+        details = {
+            decryptedSum,
+            revealedSum
+        };
+    }
+    
+    res.json({
+        verification,
+        total_commitments: totalCommitments,
+        total_reveals: totalReveals,
+        details
+    });
 });
 
 // 4. RESET

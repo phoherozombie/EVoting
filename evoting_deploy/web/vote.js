@@ -1,30 +1,29 @@
 // =============================================================
-// web/vote.js  —  Browser-side logic
-// Polls server status, drives phase transitions automatically.
+// web/vote.js  —  Browser-side logic (Đã được vá lỗi khóa nút)
 // =============================================================
 'use strict';
 
 let hasVoted       = false;
 let shareSubmitted = false;
 let pollTimer      = null;
-const EXPECTED     = 3;  // must match server's EXPECTED_VOTERS
+const EXPECTED     = 3;
 
-// ── Init ──────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded', async () => {
-    // Show voter ID from server
+    // Tự động mờ nút Decrypt lúc mới vào
+    document.getElementById('btnDecrypt').disabled = true;
+
     try {
         const s = await fetch('/health').then(r => r.json());
         const tag = document.getElementById('voterTag');
         if (s.voter) tag.textContent = s.voter.toUpperCase();
     } catch (_) {}
 
-    log('System ready. Waiting for ballot.', 'info');
+    log('Hệ thống đã sẵn sàng. Vui lòng bỏ phiếu.', 'info');
     startPolling();
 });
 
-// ── Polling ───────────────────────────────────────────────────
 function startPolling() {
-    pollTimer = setInterval(pollStatus, 4000);
+    pollTimer = setInterval(pollStatus, 3000);
 }
 
 async function pollStatus() {
@@ -33,10 +32,15 @@ async function pollStatus() {
         if (!res.ok) return;
         const s = await res.json();
 
-        // Update progress bar
         updateProgress(s.votes_received || 0, EXPECTED);
 
-        // Show result if available from server
+        // CHỈ MỞ khóa nút giải mã khi đủ 3 phiếu bầu
+        if (s.votes_received >= EXPECTED && !shareSubmitted) {
+            document.getElementById('btnDecrypt').disabled = false;
+        } else if (s.votes_received < EXPECTED) {
+            document.getElementById('btnDecrypt').disabled = true; // Khóa lại nếu server bị reset
+        }
+
         if (s.result) {
             showResult(s.result);
         }
@@ -58,12 +62,11 @@ function showResult(resultText) {
     }
 }
 
-// ── Cast vote ──────────────────────────────────────────────────
 async function castVote(choice) {
-    if (hasVoted) { log('Already voted this session.', 'err'); return; }
+    if (hasVoted) { log('Bạn đã bỏ phiếu rồi!', 'err'); return; }
 
     lockVoteButtons();
-    log(`Encrypting ${choice.toUpperCase()} vote locally...`, 'info');
+    log(`Đang mã hóa phiếu bầu ${choice.toUpperCase()} cục bộ...`, 'info');
 
     try {
         const res  = await fetch('/vote', {
@@ -75,30 +78,27 @@ async function castVote(choice) {
 
         if (!res.ok) {
             unlockVoteButtons();
-            log(`Error: ${data.error}`, 'err');
+            log(`Lỗi: ${data.error}`, 'err');
             return;
         }
 
         hasVoted = true;
         document.getElementById('votedBadge').classList.add('show');
         log(`✓ ${data.message}`, 'ok');
-        log('Ciphertext in transit. Server receives only encrypted data.', 'info');
 
-        // Update progress from server response
         if (data.server) updateProgress(data.server.count || 0, EXPECTED);
 
     } catch (err) {
         unlockVoteButtons();
-        log(`Network error: ${err.message}`, 'err');
+        log(`Lỗi kết nối: ${err.message}`, 'err');
     }
 }
 
-// ── Partial decrypt ────────────────────────────────────────────
 async function partialDecrypt() {
-    if (shareSubmitted) { log('Share already submitted.', 'err'); return; }
+    if (shareSubmitted) { log('Bạn đã nộp share giải mã rồi!', 'err'); return; }
 
     document.getElementById('btnDecrypt').disabled = true;
-    log('Downloading encrypted tally from server...', 'info');
+    log('Đang tải kết quả tally đã mã hóa từ Server...', 'info');
 
     try {
         const res  = await fetch('/partial-decrypt', { method: 'POST' });
@@ -106,7 +106,7 @@ async function partialDecrypt() {
 
         if (!res.ok) {
             document.getElementById('btnDecrypt').disabled = false;
-            log(`Error: ${data.error}`, 'err');
+            log(`Lỗi: ${data.error}`, 'err');
             return;
         }
 
@@ -114,18 +114,17 @@ async function partialDecrypt() {
         log(`✓ ${data.message}`, 'ok');
 
         if (data.ready_to_combine) {
-            log('All shares received. Server can now reveal the tally.', 'warn');
+            log('Đã thu thập đủ các mảnh giải mã. Kết quả sẽ được hiển thị!', 'warn');
         } else {
-            log('Waiting for remaining voters to submit their shares...', 'info');
+            log('Đợi các cử tri khác nộp mảnh giải mã của họ...', 'info');
         }
 
     } catch (err) {
         document.getElementById('btnDecrypt').disabled = false;
-        log(`Network error: ${err.message}`, 'err');
+        log(`Lỗi kết nối: ${err.message}`, 'err');
     }
 }
 
-// ── UI helpers ────────────────────────────────────────────────
 function lockVoteButtons() {
     document.getElementById('btnYes').disabled = true;
     document.getElementById('btnNo').disabled  = true;

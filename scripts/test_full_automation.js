@@ -356,7 +356,7 @@ async function run() {
         // Failure: Double voting
         try {
             console.log("Attempting double vote for voter1...");
-            const voteBuffer = fs.readFileSync(path.join(TEST_DATA_DIR, 'voter1', 'enc_vote.bin'));
+            const voteBuffer = fs.readFileSync(path.join(TEST_DATA_DIR, voters[0].id, 'enc_vote.bin'));
             await request('/vote', 'POST', voteBuffer, {
                 'Authorization': `Bearer ${voters[0].token}`
             });
@@ -389,7 +389,7 @@ async function run() {
         // Failure: Vote after tally (election closed)
         try {
             console.log("Attempting to vote after tally starts...");
-            const voteBuffer = fs.readFileSync(path.join(TEST_DATA_DIR, 'voter1', 'enc_vote.bin'));
+            const voteBuffer = fs.readFileSync(path.join(TEST_DATA_DIR, voters[0].id, 'enc_vote.bin'));
             // Create a fake token/user just to show it rejects due to election closed, not already voted
             await request('/vote', 'POST', voteBuffer, {
                 'Authorization': `Bearer ${voters[0].token}`

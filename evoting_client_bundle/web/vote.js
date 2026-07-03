@@ -12,7 +12,8 @@
 'use strict';
 
 // ── Constants & state ─────────────────────────────────────────
-const CLIENT_BASE = '';   // same-origin: served at localhost:3000
+const EXPECTED             = 1;  // must match server's EXPECTED_VOTERS
+const CLIENT_BASE          = '';   // same-origin: served at localhost:3000
 
 let selectedCandidateIndex = null;   // currently highlighted card id
 let candidates             = [];     // array fetched from /candidates

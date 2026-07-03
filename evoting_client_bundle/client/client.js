@@ -20,7 +20,7 @@ const crypto   = require('crypto');
 const app        = express();
 const PORT       = parseInt(process.env.CLIENT_PORT || '3000', 10);
 const SERVER_URL = (process.env.SERVER_URL || 'http://localhost:3001').replace(/\/$/, '');
-const VOTER_ID   = process.env.VOTER_ID   || 'voter1';
+let VOTER_ID   = process.env.VOTER_ID   || 'voter1';
 
 // ── Paths ─────────────────────────────────────────────────────
 const ROOT       = path.join(__dirname, '..');
@@ -129,6 +129,7 @@ async function registerVoter(full_name, cccd, dob, address, phone) {
     authToken   = data.token;
     // Support both old (voterId) and new (voter_id) field name
     const resolvedId = data.voter_id || data.voterId;
+    VOTER_ID = resolvedId;
     isFirstVoter = data.isFirst === 1;
     console.log(`[${resolvedId}] Registered. Token acquired. isFirst: ${isFirstVoter}`);
 

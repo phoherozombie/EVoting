@@ -9,9 +9,9 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
-const CLIENT_ID = process.env.CLIENT_ID || '1'; 
-const CENTRAL_SERVER_URL = process.env.CENTRAL_SERVER_URL || 'http://localhost:3001';
-const BUILD_DIR = '/home/tuyen/Project/evoting-system/EVoting/crypto/src_distributed/build';
+const CLIENT_ID = process.env.CLIENT_ID || '3';
+const CENTRAL_SERVER_URL = 'http://172.20.1.152:3001';
+const BUILD_DIR = path.join(__dirname, '../src_distributed/build');
 
 console.log(`[Khởi động] VoterApp ${CLIENT_ID}`);
 
@@ -29,7 +29,6 @@ app.post('/vote', async (req, res) => {
     const voteValue = vote === 'yes' ? 1 : 0;
     
     try {
-        // Kiểm tra file phụ trợ
         if (!fs.existsSync(path.join(BUILD_DIR, 'params/crypto_params.bin'))) {
              throw new Error('Thiếu file params/crypto_params.bin. Hãy chạy ./setup trước!');
         }
@@ -38,10 +37,12 @@ app.post('/vote', async (req, res) => {
         execSync(`./client_vote ${CLIENT_ID} ${voteValue}`, { cwd: BUILD_DIR });
 
         const voteFile = path.join(BUILD_DIR, 'server', `vote${CLIENT_ID}.bin`);
+        
+        // SỦA LỖI Ở ĐÂY: Append text attributes trước khi stream file
         const form = new FormData();
-        form.append('file', fs.createReadStream(voteFile));
         form.append('type', 'vote');
         form.append('id', CLIENT_ID);
+        form.append('file', fs.createReadStream(voteFile));
 
         await axios.post(`${CENTRAL_SERVER_URL}/api/upload`, form, { headers: form.getHeaders() });
         res.json({ message: 'Đã gửi phiếu bầu thành công.' });
@@ -53,25 +54,23 @@ app.post('/vote', async (req, res) => {
 
 app.post('/partial-decrypt', async (req, res) => {
     try {
-        // 1. Tải tally.bin
         console.log(`[Voter ${CLIENT_ID}] Đang tải tally.bin...`);
         const resp = await axios.get(`${CENTRAL_SERVER_URL}/api/download/tally.bin`, { responseType: 'arraybuffer' });
         fs.writeFileSync(path.join(BUILD_DIR, 'server/tally.bin'), Buffer.from(resp.data));
 
-        // 2. Kiểm tra Secret Key
         const skPath = path.join(BUILD_DIR, `client${CLIENT_ID}/sk.bin`);
         if (!fs.existsSync(skPath)) throw new Error(`Không tìm thấy chìa khóa tại ${skPath}`);
 
-        // 3. Chạy Decrypt
         console.log(`[Voter ${CLIENT_ID}] Đang giải mã...`);
         execSync(`./client_partial_decrypt ${CLIENT_ID}`, { cwd: BUILD_DIR });
 
-        // 4. Gửi share
         const shareFile = path.join(BUILD_DIR, `server/share${CLIENT_ID}.bin`);
+        
+        // SỦA LỖI Ở ĐÂY: Append text attributes trước khi stream file
         const form = new FormData();
-        form.append('file', fs.createReadStream(shareFile));
         form.append('type', 'share');
         form.append('id', CLIENT_ID);
+        form.append('file', fs.createReadStream(shareFile));
 
         const uploadRes = await axios.post(`${CENTRAL_SERVER_URL}/api/upload`, form, { headers: form.getHeaders() });
         res.json({ message: 'Đã nộp phần giải mã của bạn.', ready_to_combine: uploadRes.data.ready_to_combine });
