@@ -1,41 +1,23 @@
-# Build artifacts
-crypto/build/
-**/CMakeFiles/
+# ===== C++ Build Files =====
+**/build/
 **/CMakeCache.txt
-**/cmake_install.cmake
+**/CMakeFiles/
 **/Makefile
-**/progress.marks
-**/*.o
-**/*.d
+**/cmake_install.cmake
+*.o
+*.out
+
+# ===== OpenFHE Binary Files (Khóa bí mật, phiếu bầu) =====
 **/*.bin
-**/*.txt
-!README.md
-!CMakeLists.txt
-!**/src/**/*.cpp
-!**/src/**/*.h
+**/*.tar.gz
 
-# Specific binaries
-crypto/build/setup
-crypto/build/keygen
-crypto/build/partial_decrypt
-crypto/build/voter_keygen
-crypto/build/tally
-crypto/build/combine
-crypto/build/voter_partial_decrypt
-crypto/build/encrypt_vote
+# ===== Node.js =====
+**/node_modules/
 
-# Node.js
-node_modules/
-client/node_modules/
-package-lock.json
+# ===== Environment secrets =====
+web/.env
 
-# Data and Params
-/params/
-server/data/
-client/data/
-client_1/data/
-web/data/
-
-# IDE
-.vscode/
+# ===== OS junk =====
 .DS_Store
+Thumbs.db
+web/server/

@@ -162,7 +162,34 @@
     </p>
   </div>
 
-  <div class="card">
+  <!-- Auth Card -->
+  <div class="card" id="authCard">
+    <div class="card-bar">
+      <div class="dot dot-r"></div>
+      <div class="dot dot-y"></div>
+      <div class="dot dot-g"></div>
+      <span class="card-title-bar">secure-evote / auth</span>
+    </div>
+    <div class="card-body">
+      <div class="q-wrap">
+        <div class="q-label">Authentication</div>
+        <div class="q-text">Voter Registration & Login</div>
+      </div>
+      <input type="text" id="voterIdInput" placeholder="Voter ID (e.g. 1, 2, 3)" style="width:100%; padding: 12px; margin-bottom: 12px; background: rgba(0,229,255,.05); border: 1px solid rgba(0,229,255,.3); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+      <input type="password" id="passwordInput" placeholder="Password" style="width:100%; padding: 12px; margin-bottom: 24px; background: rgba(0,229,255,.05); border: 1px solid rgba(0,229,255,.3); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+      <div class="vote-row">
+        <button class="vote-btn btn-yes" onclick="handleLogin()" style="padding: 16px;">
+          LOGIN
+        </button>
+        <button class="vote-btn btn-decrypt" onclick="handleRegister()" style="padding: 16px;">
+          REGISTER
+        </button>
+      </div>
+      <div id="authLog" style="color: var(--no); font-family: var(--mono); font-size: 0.75rem; text-align: center; height: 20px;"></div>
+    </div>
+  </div>
+
+  <div class="card" id="voteCard" style="display: none;">
     <div class="card-bar">
       <div class="dot dot-r"></div>
       <div class="dot dot-y"></div>
