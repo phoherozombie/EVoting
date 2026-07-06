@@ -4,10 +4,17 @@ const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 const cors = require('cors');
+const jwt = require('jsonwebtoken');
+require('dotenv').config();
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+const DATA_DIR = path.join(__dirname, 'server/data');
+if (!fs.existsSync(DATA_DIR)) fs.mkdirSync(DATA_DIR, { recursive: true });
+const VOTERS_FILE = path.join(DATA_DIR, 'voters.json');
+if (!fs.existsSync(VOTERS_FILE)) fs.writeFileSync(VOTERS_FILE, JSON.stringify([]));
 
 const BUILD_DIR = '/home/tuyen/Project/evoting-system/EVoting/crypto/src_distributed/build';
 const SERVER_DIR = path.join(BUILD_DIR, 'server');
@@ -16,6 +23,8 @@ let votesReceived = 0;
 let sharesReceived = 0;
 let finalResult = null;
 const EXPECTED_VOTERS = 3;
+let votedIds = new Set();
+let sharedIds = new Set();
 
 const storage = multer.diskStorage({
     destination: function (req, file, cb) {
@@ -38,11 +47,62 @@ app.get('/api/download/:filename', (req, res) => {
     res.download(filepath);
 });
 
-app.post('/api/upload', upload.single('file'), (req, res) => {
+// Auth Middleware
+const authenticateJWT = (req, res, next) => {
+    const authHeader = req.headers.authorization;
+    if (authHeader) {
+        const token = authHeader.split(' ')[1];
+        jwt.verify(token, process.env.JWT_SECRET || 'super_secret_voting_key_2026', (err, user) => {
+            if (err) return res.sendStatus(403);
+            req.user = user;
+            next();
+        });
+    } else {
+        res.sendStatus(401);
+    }
+};
+
+app.post('/api/register', (req, res) => {
+    const { voter_id, password } = req.body;
+    if (!voter_id || !password) return res.status(400).json({ error: 'Thiếu thông tin' });
+    
+    let voters = JSON.parse(fs.readFileSync(VOTERS_FILE));
+    if (voters.find(v => v.voter_id === voter_id)) {
+        return res.status(400).json({ error: 'Cử tri đã đăng ký' });
+    }
+    
+    voters.push({ voter_id, password });
+    fs.writeFileSync(VOTERS_FILE, JSON.stringify(voters));
+    res.json({ success: true, message: 'Đăng ký thành công' });
+});
+
+app.post('/api/login', (req, res) => {
+    const { voter_id, password } = req.body;
+    let voters = JSON.parse(fs.readFileSync(VOTERS_FILE));
+    const user = voters.find(v => v.voter_id === voter_id && v.password === password);
+    
+    if (user) {
+        const token = jwt.sign({ voter_id: user.voter_id }, process.env.JWT_SECRET || 'super_secret_voting_key_2026', { expiresIn: '1h' });
+        res.json({ success: true, token });
+    } else {
+        res.status(401).json({ error: 'Sai thông tin đăng nhập' });
+    }
+});
+
+app.post('/api/upload', authenticateJWT, upload.single('file'), (req, res) => {
     const type = req.body.type;
     console.log(`[Server] Nhận ${type} từ Client ${req.body.id}`);
 
+    if (req.user.voter_id !== req.body.id) {
+        return res.status(403).json({ error: 'ID không khớp với token đăng nhập' });
+    }
+
     if (type === 'vote') {
+        if (votedIds.has(req.user.voter_id)) {
+            return res.status(403).json({ error: 'Bạn đã bỏ phiếu rồi!' });
+        }
+        votedIds.add(req.user.voter_id);
+        
         votesReceived++;
         if (votesReceived >= EXPECTED_VOTERS) {
             console.log(`[Server] Đủ phiếu! Đang chạy tally...`);
@@ -53,6 +113,11 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
         res.json({ success: true, server: { count: votesReceived } });
     } 
     else if (type === 'share') {
+        if (sharedIds.has(req.user.voter_id)) {
+            return res.status(403).json({ error: 'Bạn đã nộp phần giải mã rồi!' });
+        }
+        sharedIds.add(req.user.voter_id);
+        
         sharesReceived++;
         let ready = false;
         if (sharesReceived >= EXPECTED_VOTERS) {
@@ -80,6 +145,8 @@ app.get('/api/reset', (req, res) => {
     votesReceived = 0;
     sharesReceived = 0;
     finalResult = null;
+    votedIds.clear();
+    sharedIds.clear();
 
     try {
         if (fs.existsSync(SERVER_DIR)) {

@@ -6,21 +6,82 @@
 let hasVoted       = false;
 let shareSubmitted = false;
 let pollTimer      = null;
+let jwtToken       = null;
+let currentVoterId = null;
 const EXPECTED     = 3;
 
 window.addEventListener('DOMContentLoaded', async () => {
     // Tự động mờ nút Decrypt lúc mới vào
     document.getElementById('btnDecrypt').disabled = true;
-
-    try {
-        const s = await fetch('/health').then(r => r.json());
-        const tag = document.getElementById('voterTag');
-        if (s.voter) tag.textContent = s.voter.toUpperCase();
-    } catch (_) {}
-
-    log('Hệ thống đã sẵn sàng. Vui lòng bỏ phiếu.', 'info');
     startPolling();
 });
+
+async function handleRegister() {
+    const voterId = document.getElementById('voterIdInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const authLog = document.getElementById('authLog');
+    
+    if (!voterId || !password) {
+        authLog.textContent = 'Vui lòng nhập Voter ID và Password';
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voter_id: voterId, password })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            authLog.style.color = 'var(--yes)';
+            authLog.textContent = 'Đăng ký thành công! Vui lòng Đăng nhập.';
+        } else {
+            authLog.style.color = 'var(--no)';
+            authLog.textContent = data.error || 'Lỗi đăng ký';
+        }
+    } catch (err) {
+        authLog.style.color = 'var(--no)';
+        authLog.textContent = 'Lỗi kết nối';
+    }
+}
+
+async function handleLogin() {
+    const voterId = document.getElementById('voterIdInput').value.trim();
+    const password = document.getElementById('passwordInput').value;
+    const authLog = document.getElementById('authLog');
+    
+    if (!voterId || !password) {
+        authLog.textContent = 'Vui lòng nhập Voter ID và Password';
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ voter_id: voterId, password })
+        });
+        const data = await res.json();
+        
+        if (res.ok) {
+            jwtToken = data.token;
+            currentVoterId = voterId;
+            document.getElementById('authCard').style.display = 'none';
+            document.getElementById('voteCard').style.display = 'block';
+            document.getElementById('voterTag').textContent = `VOTER ${voterId}`;
+            log(`Đăng nhập thành công với Voter ID: ${voterId}`, 'ok');
+            log('Hệ thống đã sẵn sàng. Vui lòng bỏ phiếu.', 'info');
+        } else {
+            authLog.style.color = 'var(--no)';
+            authLog.textContent = data.error || 'Lỗi đăng nhập';
+        }
+    } catch (err) {
+        authLog.style.color = 'var(--no)';
+        authLog.textContent = 'Lỗi kết nối';
+    }
+}
 
 function startPolling() {
     pollTimer = setInterval(pollStatus, 3000);
@@ -71,8 +132,11 @@ async function castVote(choice) {
     try {
         const res  = await fetch('/vote', {
             method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({ vote: choice }),
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            },
+            body:    JSON.stringify({ vote: choice, voter_id: currentVoterId }),
         });
         const data = await res.json();
 
@@ -101,7 +165,14 @@ async function partialDecrypt() {
     log('Đang tải kết quả tally đã mã hóa từ Server...', 'info');
 
     try {
-        const res  = await fetch('/partial-decrypt', { method: 'POST' });
+        const res  = await fetch('/partial-decrypt', { 
+            method: 'POST',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${jwtToken}`
+            },
+            body: JSON.stringify({ voter_id: currentVoterId })
+        });
         const data = await res.json();
 
         if (!res.ok) {
