@@ -1,247 +1,74 @@
-# Privacy-Preserving E-Voting — MK-FHE Demo
-**Graduation Project** · C++17 · OpenFHE · Node.js · Distributed Demo
+# Secure E-Voting System (Ballon d'Or Edition)
 
----
+A distributed, secure electronic voting system leveraging **Multi-Key Fully Homomorphic Encryption (MK-FHE)** via the OpenFHE library. This system guarantees voter privacy (votes are encrypted end-to-end and tallied without decryption) and result verifiability.
 
-## Quick Reference
+## Architecture
 
-| Script | When | What |
-|--------|------|------|
-| `./scripts/build.sh` | Day 1 | Compile all C++ binaries |
-| `./scripts/test_local.sh` | Day 2 | Full pipeline test on 1 machine |
-| `./scripts/network_check.sh` | Day 3 | Verify all 4 computers reachable |
-| `./scripts/sync_params.sh` | Day 3 | Copy crypto_params.bin to all machines |
-| `./scripts/run_server.sh` | Day 4 | Start tally server (Computer 1) |
-| `./scripts/run_voter.sh` | Day 4 | Start voter client (Computers 2/3/4) |
-| `./scripts/demo_run.sh` | Demo | Guided presentation walkthrough |
-| `./scripts/demo_tally.sh tally` | Demo | Trigger homomorphic tally |
-| `./scripts/demo_tally.sh combine` | Demo | Fuse shares → reveal result |
-| `./scripts/demo_tally.sh reset` | Demo | Wipe server for fresh run |
+The system consists of two main components:
+1. **Central Server (`central_server.js`)**: Collects encrypted votes, aggregates public key shares, and performs homomorphic tallying (`server_tally`). It also performs the final fusion (`server_fusion`) of partial decryptions to reveal the final tally without ever seeing the individual plaintext votes.
+2. **Client Gateway (`client_server.js`)**: A local proxy for the voter that interacts with the C++ backend to generate local key shares (`client_keygen`), encrypt the vote (`client_vote`), and perform partial decryption (`client_partial_decrypt`).
 
----
+### Directory Structure (evoting_deploy)
+- `src_distributed/`: C++ source code utilizing OpenFHE for cryptography (keygen, vote encryption, tallying, decryption fusion).
+- `web/`: Node.js Express servers.
+  - `central_server.js`: Centralized coordination server (Dashboard at port 3001).
+  - `client_server.js`: Local voter gateway (Voting Interface at port 3000).
+  - `vote.js` & `index.html`: Frontend application.
 
-## Day 1 — Build & Basic Crypto
+## Prerequisites
 
+- **Node.js** (v18+)
+- **OpenFHE Library**: Must be compiled and installed on the host machine.
+- **CMake & C++ Compiler**: To build the `src_distributed` files.
+
+## Build and Setup
+
+### 1. Build C++ Cryptography Backend
+Navigate to the `src_distributed` folder and build the executables using CMake:
 ```bash
-# 1. Build all binaries
-./scripts/build.sh
-# With custom OpenFHE path:
-# ./scripts/build.sh /path/to/openfhe-development/build
-
-# 2. Generate shared CryptoContext
-./crypto/build/setup
-# → params/crypto_params.bin
-
-# 3. Generate this voter's keypair
-./crypto/build/keygen
-# → client/data/keys/public_key.bin
-# → client/data/keys/secret_key.bin
-
-# 4. Encrypt a YES vote
-./crypto/build/encrypt_vote 1
-# → client/data/enc_vote.bin
-
-# 5. Verify
-ls -lh client/data/enc_vote.bin
+cd evoting_deploy/src_distributed
+mkdir build && cd build
+cmake ..
+make
 ```
 
----
-
-## Day 2 — Full Crypto Pipeline
-
+### 2. Install Node.js Dependencies
+Navigate to the `web` directory and install the necessary npm packages:
 ```bash
-# Run the complete local simulation (all 5 steps, 3 simulated voters)
-./scripts/test_local.sh
-
-# Expected output:
-# ✓  FINAL YES VOTES = 2  (voter1=YES, voter2=YES, voter3=NO)
-# ✓  TEST PASSED
+cd evoting_deploy/web
+npm install
 ```
 
-If the test passes, the entire crypto pipeline is correct.
+### 3. Environment Variables
+In the `web/` directory, ensure you have a `.env` file configured:
+```env
+JWT_SECRET=super_secret_voting_key_2026
+SMTP_EMAIL=your_email@gmail.com
+SMTP_PASSWORD=your_app_password
+```
 
-Then test Node.js integration:
+## Running the System
+
+### Starting the Central Server
+This server handles registration, collects encrypted data, and runs the tallying process.
 ```bash
-# Terminal 1: start server
-./scripts/run_server.sh
-
-# Terminal 2: start voter client
-VOTER_ID=voter1 SERVER_URL=http://localhost:3001 ./scripts/run_voter.sh
-
-# Open http://localhost:3000 → vote → watch terminals
+cd evoting_deploy/web
+node central_server.js
 ```
+- API & Dashboard available at: `http://localhost:3001` (Note: Update IP bindings if deployed remotely).
 
----
-
-## Day 3 — Multi-Machine Networking
-
-### 1. Edit IP addresses
-
-Edit the top of these scripts with your actual LAN IPs:
-- `scripts/network_check.sh`
-- `scripts/sync_params.sh`
-
-### 2. Distribute crypto_params.bin
-
+### Starting the Client Gateway (Voter Machine)
+Each voter runs a local gateway to encrypt votes safely on their own machine.
 ```bash
-# Run on Computer 1 after ./crypto/build/setup
-./scripts/sync_params.sh
+cd evoting_deploy/web
+node client_server.js
 ```
+- Voting UI available at: `http://localhost:3000`
 
-Or copy manually:
-```bash
-scp params/crypto_params.bin student@192.168.1.101:~/evoting-system/params/
-```
-
-### 3. Check connectivity
-
-```bash
-./scripts/network_check.sh
-```
-
-### 4. Test 2-machine flow
-
-```bash
-# Computer 1:
-./scripts/run_server.sh
-
-# Computer 2:
-VOTER_ID=voter1 SERVER_URL=http://192.168.1.100:3001 ./scripts/run_voter.sh
-# Open http://localhost:3000 and vote
-```
-
----
-
-## Day 4 — Full Demo
-
-### Start all services
-
-```bash
-# Computer 1 (Tally Server):
-./scripts/run_server.sh
-./scripts/bundle_client.sh # Create evoting_client_bundle.tar.gz
-
-# Computer 2 (Voter 1):
-# Download evoting_client_bundle.tar.gz and extract it
-./run_voter.sh
-
-# Computer 3 (Voter 2):
-# Download evoting_client_bundle.tar.gz and extract it
-VOTER_ID=voter2 ./run_voter.sh
-
-# Computer 4 (Voter 3):
-# Download evoting_client_bundle.tar.gz and extract it
-VOTER_ID=voter3 ./run_voter.sh
-```
-
-### Run the guided demo
-
-```bash
-# On Computer 1:
-./scripts/demo_run.sh
-```
-
-### Manual demo controls
-
-```bash
-# Check election state at any time
-./scripts/demo_tally.sh status
-
-# After all 3 votes received:
-./scripts/demo_tally.sh tally
-
-# After all 3 shares received:
-./scripts/demo_tally.sh combine
-
-# Reset for another run:
-./scripts/demo_tally.sh reset
-```
-
----
-
-## Folder Structure
-
-```
-evoting-system/
-├── crypto/
-│   ├── CMakeLists.txt
-│   ├── build/               ← compiled binaries go here
-│   └── src/
-│       ├── setup.cpp         D1: generate shared CryptoContext
-│       ├── keygen.cpp        D1: generate voter keypair
-│       ├── encrypt_vote.cpp  D1: encrypt vote (arg: 0 or 1)
-│       ├── tally.cpp         D2: homomorphic addition
-│       ├── partial_decrypt.cpp D2: voter's decryption share
-│       └── combine.cpp       D2: fuse shares → plaintext result
-├── server/
-│   ├── package.json
-│   ├── server.js            REST API, runs on Computer 1 port 3001
-│   └── data/
-│       ├── ciphertexts/     enc_vote_<id>.bin files
-│       ├── tally/           enc_tally.bin, final_result.txt
-│       └── shares/          share_<id>.bin files
-├── client/
-│   ├── package.json
-│   ├── client.js            REST API, runs on Computers 2/3/4 port 3000
-│   └── data/
-│       ├── keys/            public_key.bin, secret_key.bin
-│       ├── tally/           enc_tally.bin (downloaded from server)
-│       └── shares/          my_share.bin
-├── web/
-│   ├── index.html           Voting UI
-│   └── vote.js              Browser logic
-├── params/
-│   └── crypto_params.bin    Shared across ALL computers
-└── scripts/
-    ├── build.sh
-    ├── test_local.sh
-    ├── network_check.sh
-    ├── sync_params.sh
-    ├── run_server.sh
-    ├── run_voter.sh
-    ├── demo_run.sh
-    └── demo_tally.sh
-```
-
----
-
-## Server API Reference
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | /health | Liveness check |
-| GET | /status | Election state (votes, shares, phase) |
-| POST | /vote | Receive encrypted vote (binary body, voter-id header) |
-| POST | /tally | Trigger homomorphic tally (admin) |
-| GET | /tally | Download enc_tally.bin |
-| POST | /share | Receive partial decryption share (voter-id header) |
-| POST | /combine | Fuse shares → final result (admin) |
-| GET | /result | Read final plaintext result |
-| POST | /reset | Wipe all data (demo helper) |
-
-## Client API Reference
-
-| Method | Route | Description |
-|--------|-------|-------------|
-| GET | /health | Liveness check |
-| GET | /status | This voter's local state |
-| POST | /vote | Browser submits YES/NO |
-| POST | /partial-decrypt | Browser triggers share submission |
-
----
-
-## Environment Variables
-
-### server.js
-| Variable | Default | Description |
-|----------|---------|-------------|
-| SERVER_PORT | 3001 | Port to listen on |
-| EXPECTED_VOTERS | 3 | Number of voters expected |
-
-### client.js
-| Variable | Default | Description |
-|----------|---------|-------------|
-| CLIENT_PORT | 3000 | Port to listen on |
-| SERVER_URL | http://localhost:3001 | Tally server address |
-| VOTER_ID | voter1 | Unique ID for this voter |
-# EVoting
+## Voting Workflow
+1. **Register & Login**: Voters log in using their Voter ID and Password.
+2. **Key Generation**: The client generates a unique partial public key and secret key. Only the public key share is uploaded.
+3. **Vote**: The voter selects a candidate. The vote is homomorphically encrypted locally and pushed to the central server.
+4. **Tally**: Once enough votes are received, the central server homomorphically adds them (`tally.bin`).
+5. **Decrypt**: Voters download the encrypted tally and perform a partial decryption using their local secret key.
+6. **Fusion**: The central server fuses all partial decryptions to reveal the final winner!

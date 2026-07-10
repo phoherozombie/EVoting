@@ -9,24 +9,24 @@
   <style>
     *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
     :root{
-      --bg:#050d1a;--surface:#0a1628;--surface2:#0f1f38;
-      --border:#1a3050;--border2:#243d5e;
-      --accent:#00e5ff;--accent2:#0099bb;
-      --yes:#00ff88;--yes2:#00cc6a;
-      --no:#ff3860;--no2:#cc1f45;
-      --text:#cdd9e8;--muted:#4a6080;--faint:#243040;
+      --bg:#07070a;--surface:#101015;--surface2:#171722;
+      --border:#262115;--border2:#4a3f23;
+      --accent:#e5c158;--accent2:#bfa143;
+      --yes:#e5c158;--yes2:#bfa143;
+      --no:#ea4335;--no2:#c53023;
+      --text:#e3e4e6;--muted:#8b8e95;--faint:#1d1d26;
       --mono:'Share Tech Mono',monospace;
       --sans:'Syne',sans-serif;
     }
     html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);overflow-x:hidden}
 
-    /* grid bg */
+    /* grid bg with gold radial gradient */
     body::before{content:'';position:fixed;inset:0;
-      background-image:linear-gradient(rgba(0,229,255,.03)1px,transparent 1px),
-        linear-gradient(90deg,rgba(0,229,255,.03)1px,transparent 1px);
+      background-image:linear-gradient(rgba(229,193,88,.02) 1px,transparent 1px),
+        linear-gradient(90deg,rgba(229,193,88,.02) 1px,transparent 1px);
       background-size:40px 40px;pointer-events:none;z-index:0}
-    body::after{content:'';position:fixed;width:700px;height:700px;border-radius:50%;
-      background:radial-gradient(circle,rgba(0,229,255,.05)0%,transparent 70%);
+    body::after{content:'';position:fixed;width:800px;height:800px;border-radius:50%;
+      background:radial-gradient(circle,rgba(229,193,88,.06) 0%,transparent 70%);
       top:50%;left:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:0}
 
     .page{position:relative;z-index:1;min-height:100vh;display:flex;
@@ -36,25 +36,25 @@
     .header{text-align:center;margin-bottom:40px}
     .badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);
       font-size:.68rem;letter-spacing:.15em;color:var(--accent);
-      border:1px solid rgba(0,229,255,.3);padding:5px 14px;border-radius:2px;margin-bottom:18px;
+      border:1px solid rgba(229,193,88,.3);padding:5px 14px;border-radius:2px;margin-bottom:18px;
       animation:pulseBorder 3s ease-in-out infinite}
-    @keyframes pulseBorder{0%,100%{border-color:rgba(0,229,255,.25)}50%{border-color:rgba(0,229,255,.7)}}
-    .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--yes);animation:blinkDot 1.4s infinite}
+    @keyframes pulseBorder{0%,100%{border-color:rgba(229,193,88,.25)}50%{border-color:rgba(229,193,88,.7)}}
+    .badge-dot{width:6px;height:6px;border-radius:50%;background:var(--accent);animation:blinkDot 1.4s infinite}
     @keyframes blinkDot{0%,100%{opacity:1}50%{opacity:.2}}
     h1{font-size:clamp(1.8rem,4vw,2.9rem);font-weight:800;letter-spacing:-.02em;
-      color:#fff;line-height:1.1;margin-bottom:10px}
-    h1 span{color:var(--accent)}
+      color:#fff;line-height:1.1;margin-bottom:10px;text-transform:uppercase}
+    h1 span{color:var(--accent);text-shadow:0 0 15px rgba(229,193,88,0.3)}
     .subtitle{font-family:var(--mono);font-size:.72rem;color:var(--muted);
       letter-spacing:.04em;max-width:400px;margin:0 auto;line-height:1.8}
 
     /* ── card ── */
     .card{background:var(--surface);border:1px solid var(--border);
-      border-radius:4px;width:100%;max-width:480px;overflow:hidden;
-      box-shadow:0 0 60px rgba(0,229,255,.04)}
+      border-radius:8px;width:100%;max-width:540px;overflow:hidden;
+      box-shadow:0 10px 40px rgba(0,0,0,.5), 0 0 40px rgba(229,193,88,.02)}
     .card-bar{display:flex;align-items:center;gap:8px;padding:12px 18px;
-      border-bottom:1px solid var(--border);background:rgba(0,229,255,.03)}
+      border-bottom:1px solid var(--border);background:rgba(229,193,88,.02)}
     .dot{width:9px;height:9px;border-radius:50%}
-    .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:var(--yes);animation:blinkDot 2s infinite}
+    .dot-r{background:#ff5f57}.dot-y{background:#febc2e}.dot-g{background:var(--accent);animation:blinkDot 2s infinite}
     .card-title-bar{font-family:var(--mono);font-size:.68rem;color:var(--muted);
       margin-left:4px;letter-spacing:.07em}
     .voter-tag{margin-left:auto;font-family:var(--mono);font-size:.65rem;
@@ -63,41 +63,63 @@
 
     /* ── enc strip ── */
     .enc-strip{display:flex;align-items:center;gap:10px;
-      background:rgba(0,255,136,.04);border:1px solid rgba(0,255,136,.15);
+      background:rgba(229,193,88,.04);border:1px solid rgba(229,193,88,.15);
       border-radius:3px;padding:11px 15px;margin-bottom:26px}
     .enc-ico{font-size:1.1rem;flex-shrink:0}
-    .enc-txt{font-family:var(--mono);font-size:.67rem;color:var(--yes);
+    .enc-txt{font-family:var(--mono);font-size:.67rem;color:var(--accent);
       letter-spacing:.03em;line-height:1.6}
 
     /* ── question ── */
     .q-wrap{text-align:center;margin-bottom:24px}
     .q-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
       letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
-    .q-text{font-size:1.25rem;font-weight:700;color:#fff}
+    .q-text{font-size:1.4rem;font-weight:700;color:#fff;letter-spacing:-.01em}
 
     /* ── voted badge ── */
     .voted-badge{display:none;align-items:center;justify-content:center;gap:8px;
-      padding:12px;background:rgba(0,255,136,.06);border:1px solid rgba(0,255,136,.2);
+      padding:12px;background:rgba(229,193,88,.06);border:1px solid rgba(229,193,88,.2);
       border-radius:3px;margin-bottom:18px;font-family:var(--mono);
-      font-size:.72rem;color:var(--yes);letter-spacing:.06em}
+      font-size:.72rem;color:var(--accent);letter-spacing:.06em}
     .voted-badge.show{display:flex}
 
-    /* ── vote buttons ── */
+    /* ── candidates grid ── */
+    .candidates-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px}
+    .candidate-card{background:var(--surface2);border:1px solid var(--border);
+      border-radius:6px;padding:16px;cursor:pointer;text-align:center;
+      transition:all .2s ease;position:relative;overflow:hidden}
+    .candidate-card:hover{border-color:var(--accent);box-shadow:0 0 15px rgba(229,193,88,.1);transform:translateY(-2px)}
+    .candidate-card.selected{border-color:var(--accent);background:rgba(229,193,88,.05)}
+    .candidate-card.selected::after{content:'✓';position:absolute;top:8px;right:8px;
+      background:var(--accent);color:#000;width:18px;height:18px;border-radius:50%;
+      font-size:.7rem;font-weight:bold;line-height:18px}
+    
+    .avatar-wrap{display:flex;justify-content:center;margin-bottom:12px}
+    .avatar{width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+      font-weight:bold;font-size:1.2rem;border:2px solid var(--border);background:var(--bg);color:var(--accent);
+      box-shadow:0 0 10px rgba(0,0,0,0.3)}
+    .candidate-card:hover .avatar{border-color:var(--accent)}
+    .candidate-card.selected .avatar{border-color:var(--accent);box-shadow:0 0 12px rgba(229,193,88,.2)}
+    
+    .cand-name{font-size:.9rem;font-weight:700;color:#fff;margin-bottom:4px}
+    .cand-club{font-size:.7rem;color:var(--muted);font-family:var(--mono)}
+
+    /* ── buttons ── */
+    .vote-submit-btn{width:100%;padding:18px;background:var(--accent);
+      border:none;border-radius:4px;color:#000;font-family:var(--sans);
+      font-weight:800;font-size:1.05rem;letter-spacing:.08em;cursor:pointer;
+      transition:all .18s;box-shadow:0 4px 15px rgba(229,193,88,.15)}
+    .vote-submit-btn:hover:not(:disabled){background:#ffe28a;transform:translateY(-1px);
+      box-shadow:0 6px 20px rgba(229,193,88,.3)}
+    .vote-submit-btn:active:not(:disabled){transform:translateY(0)}
+    .vote-submit-btn:disabled{background:var(--border2);color:rgba(255,255,255,.2);cursor:not-allowed;box-shadow:none}
+
     .vote-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:24px}
-    .vote-btn{position:relative;padding:22px 14px;border:2px solid;border-radius:4px;
+    .vote-btn{position:relative;padding:14px;border:1px solid var(--border);border-radius:4px;
       background:transparent;cursor:pointer;font-family:var(--sans);font-weight:700;
-      font-size:1.05rem;letter-spacing:.06em;transition:all .17s ease;overflow:hidden}
-    .vote-btn::before{content:'';position:absolute;inset:0;opacity:0;transition:opacity .17s}
-    .vote-btn:hover:not(:disabled)::before{opacity:1}
-    .vote-btn:active:not(:disabled){transform:scale(.97)}
-    .vote-btn:disabled{opacity:.28;cursor:not-allowed;transform:none!important}
-    .btn-yes{border-color:var(--yes);color:var(--yes)}
-    .btn-yes::before{background:rgba(0,255,136,.07)}
-    .btn-yes:hover:not(:disabled){box-shadow:0 0 24px rgba(0,255,136,.18)}
-    .btn-no{border-color:var(--no);color:var(--no)}
-    .btn-no::before{background:rgba(255,56,96,.07)}
-    .btn-no:hover:not(:disabled){box-shadow:0 0 24px rgba(255,56,96,.18)}
-    .btn-icon{display:block;font-size:1.6rem;margin-bottom:3px}
+      font-size:0.95rem;letter-spacing:.06em;transition:all .17s ease;color:var(--accent)}
+    .vote-btn:hover:not(:disabled){border-color:var(--accent);background:rgba(229,193,88,.05)}
+    .vote-btn:active:not(:disabled){transform:scale(.98)}
+    .vote-btn:disabled{opacity:.28;cursor:not-allowed}
 
     /* ── divider ── */
     .divider{height:1px;background:var(--border);margin:22px 0;position:relative}
@@ -109,14 +131,14 @@
     .decrypt-hint{font-family:var(--mono);font-size:.67rem;color:var(--muted);
       margin-bottom:13px;line-height:1.7;text-align:center}
     .btn-decrypt{width:100%;padding:14px;background:transparent;
-      border:1px solid rgba(0,229,255,.35);border-radius:4px;color:var(--accent);
+      border:1px solid var(--border2);border-radius:4px;color:var(--accent);
       font-family:var(--mono);font-size:.78rem;letter-spacing:.09em;
       cursor:pointer;transition:all .18s}
-    .btn-decrypt:hover:not(:disabled){background:rgba(0,229,255,.05);
-      border-color:var(--accent);box-shadow:0 0 24px rgba(0,229,255,.1)}
+    .btn-decrypt:hover:not(:disabled){background:rgba(229,193,88,.05);
+      border-color:var(--accent);box-shadow:0 0 24px rgba(229,193,88,.1)}
     .btn-decrypt:disabled{opacity:.28;cursor:not-allowed}
 
-    /* ── progress bar (election status) ── */
+    /* ── progress bar ── */
     .progress-wrap{margin-top:22px}
     .progress-label{display:flex;justify-content:space-between;
       font-family:var(--mono);font-size:.62rem;color:var(--muted);margin-bottom:6px}
@@ -125,13 +147,35 @@
       transition:width .6s ease;width:0%}
 
     /* ── result box ── */
-    .result-box{display:none;margin-top:22px;padding:18px;
-      background:rgba(0,229,255,.05);border:1px solid rgba(0,229,255,.25);
-      border-radius:4px;text-align:center}
+    .result-box{display:none;margin-top:22px;padding:20px;
+      background:rgba(229,193,88,.02);border:1px solid var(--border);
+      border-radius:6px}
     .result-box.show{display:block}
     .result-label{font-family:var(--mono);font-size:.62rem;color:var(--muted);
-      letter-spacing:.12em;margin-bottom:8px}
-    .result-value{font-size:2rem;font-weight:800;color:var(--accent)}
+      letter-spacing:.12em;margin-bottom:16px;text-align:center}
+    
+    .results-list{display:flex;flex-direction:column;gap:12px}
+    .result-item{display:flex;align-items:center;background:rgba(255,255,255,.01);
+      padding:8px 12px;border-radius:4px;border:1px solid rgba(255,255,255,.02)}
+    .result-cand-name{font-size:.85rem;font-weight:700;color:#fff}
+    .result-cand-votes{margin-left:auto;font-family:var(--mono);font-size:1.1rem;font-weight:bold;color:var(--accent)}
+
+    /* ── log ── */
+    #log{margin-top:22px;font-family:var(--mono);font-size:.69rem;
+      line-height:1.85;max-height:150px;overflow-y:auto}
+    #log::-webkit-scrollbar{width:3px}
+    #log::-webkit-scrollbar-thumb{background:var(--border2)}
+    .log-entry{display:flex;gap:10px;padding:3px 0;
+      border-bottom:1px solid rgba(255,255,255,.03);
+      animation:fadeUp .22s ease}
+    @keyframes fadeUp{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+    .log-ts{color:var(--muted);flex-shrink:0;min-width:62px}
+    .log-ok{color:var(--accent)}.log-err{color:var(--no)}
+    .log-info{color:var(--accent)}.log-warn{color:#ffaa00}
+
+    /* ── footer ── */
+    .footer{margin-top:28px;font-family:var(--mono);font-size:.62rem;
+      color:var(--muted);text-align:center;letter-spacing:.07em;line-height:2.2}
 
     /* ── log ── */
     #log{margin-top:22px;font-family:var(--mono);font-size:.69rem;
@@ -154,11 +198,11 @@
 <body>
 <div class="page">
   <div class="header">
-    <div class="badge"><span class="badge-dot"></span>MK-FHE SECURE VOTING DEMO</div>
-    <h1>Privacy<span>-</span>Preserving<br>E-Vote</h1>
+    <div class="badge"><span class="badge-dot"></span>MK-FHE BALLON D'OR E-VOTE</div>
+    <h1>Ballon d'Or<br><span>E-Voting</span></h1>
     <p class="subtitle">
-      Your vote is encrypted locally before transmission.<br>
-      The server only handles ciphertext — never plaintext.
+      Cast your encrypted vote for the world's best player.<br>
+      Privacy is guaranteed via Homomorphic Encryption.
     </p>
   </div>
 
@@ -168,27 +212,54 @@
       <div class="dot dot-r"></div>
       <div class="dot dot-y"></div>
       <div class="dot dot-g"></div>
-      <span class="card-title-bar">secure-evote / auth</span>
+      <span class="card-title-bar">secure-evote / auth_gate</span>
     </div>
     <div class="card-body">
       <div class="q-wrap">
         <div class="q-label">Authentication</div>
         <div class="q-text">Voter Registration & Login</div>
       </div>
-      <input type="text" id="voterIdInput" placeholder="Voter ID (e.g. 1, 2, 3)" style="width:100%; padding: 12px; margin-bottom: 12px; background: rgba(0,229,255,.05); border: 1px solid rgba(0,229,255,.3); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
-      <input type="password" id="passwordInput" placeholder="Password" style="width:100%; padding: 12px; margin-bottom: 24px; background: rgba(0,229,255,.05); border: 1px solid rgba(0,229,255,.3); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
-      <div class="vote-row">
-        <button class="vote-btn btn-yes" onclick="handleLogin()" style="padding: 16px;">
-          LOGIN
-        </button>
-        <button class="vote-btn btn-decrypt" onclick="handleRegister()" style="padding: 16px;">
-          REGISTER
+
+      <!-- Tab Buttons -->
+      <div style="display: flex; gap: 10px; margin-bottom: 16px;">
+        <button id="tabPwd" onclick="switchAuthTab('pwd')" style="flex: 1; padding: 10px; background: var(--accent); color: #000; border: none; border-radius: 4px; font-weight: bold; cursor: pointer;">Mật khẩu</button>
+        <button id="tabOtp" onclick="switchAuthTab('otp')" style="flex: 1; padding: 10px; background: rgba(229,193,88,.1); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; font-weight: bold; cursor: pointer;">OTP Email</button>
+      </div>
+
+      <!-- Password Auth Form -->
+      <div id="formPwd">
+        <input type="text" id="voterIdInput" placeholder="Voter ID (e.g. 1, 2, 3)" style="width:100%; padding: 12px; margin-bottom: 12px; background: rgba(229,193,88,.02); border: 1px solid var(--border); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+        <input type="email" id="emailRegInput" placeholder="Email (dùng để đăng ký & nhận OTP)" style="width:100%; padding: 12px; margin-bottom: 12px; background: rgba(229,193,88,.02); border: 1px solid var(--border); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+        <input type="password" id="passwordInput" placeholder="Password" style="width:100%; padding: 12px; margin-bottom: 24px; background: rgba(229,193,88,.02); border: 1px solid var(--border); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+        <div class="vote-row">
+          <button class="vote-btn" onclick="handleLogin()" style="padding: 16px;">
+            LOGIN
+          </button>
+          <button class="vote-btn" onclick="handleRegister()" style="padding: 16px;">
+            REGISTER
+          </button>
+        </div>
+      </div>
+
+      <!-- OTP Auth Form -->
+      <div id="formOtp" style="display: none;">
+        <input type="email" id="emailOtpInput" placeholder="Nhập Email đã đăng ký" style="width:100%; padding: 12px; margin-bottom: 12px; background: rgba(229,193,88,.02); border: 1px solid var(--border); color: white; border-radius: 4px; font-family: var(--mono); outline: none;">
+        
+        <div style="display: flex; gap: 10px; margin-bottom: 12px;">
+          <input type="text" id="otpCodeInput" placeholder="Mã OTP 6 số" style="flex: 2; padding: 12px; background: rgba(229,193,88,.02); border: 1px solid var(--border); color: white; border-radius: 4px; font-family: var(--mono); outline: none; letter-spacing: 2px;" disabled>
+          <button id="btnSendOtp" onclick="handleSendOTP()" style="flex: 1; padding: 12px; background: rgba(229,193,88,.1); color: var(--accent); border: 1px solid var(--accent); border-radius: 4px; font-weight: bold; cursor: pointer; transition: all 0.2s;">Gửi OTP</button>
+        </div>
+        
+        <button id="btnVerifyOtp" class="vote-submit-btn" onclick="handleVerifyOTP()" style="padding: 16px; margin-bottom: 24px;" disabled>
+          XÁC NHẬN OTP & ĐĂNG NHẬP
         </button>
       </div>
+
       <div id="authLog" style="color: var(--no); font-family: var(--mono); font-size: 0.75rem; text-align: center; height: 20px;"></div>
     </div>
   </div>
 
+  <!-- Vote Card -->
   <div class="card" id="voteCard" style="display: none;">
     <div class="card-bar">
       <div class="dot dot-r"></div>
@@ -201,14 +272,25 @@
     <div class="card-body">
       <!-- Enc indicator -->
       <div class="enc-strip">
-        <span class="enc-ico">🔐</span>
-        <div class="enc-txt">END-TO-END ENCRYPTED · BFV-RNS · MULTIPARTY FHE · OpenFHE</div>
+        <span class="enc-ico">🏆</span>
+        <div class="enc-txt">BALLON D'OR EDITION · BFV-RNS · MULTIPARTY FHE</div>
+      </div>
+
+      <!-- Key Generation Module -->
+      <div class="key-gen-wrap" id="keygenWrap" style="border: 1px solid var(--border2); padding: 12px; border-radius: 6px; margin: 15px 0; font-family: var(--mono); font-size: 0.72rem; background: rgba(255,255,255,0.01);">
+        <span style="color: var(--accent); font-weight: bold;">🔑 CRYPTO KEY AUTOGEN:</span>
+        <div style="margin-top: 4px; color: var(--muted); font-size: 0.65rem; line-height: 1.4;">
+          If the crypto details are reset, regenerate your key share below BEFORE voting.
+        </div>
+        <button id="btnGenerateKey" onclick="generateCryptoKey()" class="btn-decrypt" style="margin-top: 10px; width: 100%; border-color: var(--accent); color: var(--accent); padding: 8px;">
+          [ GENERATE &amp; UPLOAD NEW KEY SHARE ]
+        </button>
       </div>
 
       <!-- Question -->
       <div class="q-wrap">
-        <div class="q-label">Ballot Question</div>
-        <div class="q-text">Do you approve this proposal?</div>
+        <div class="q-label">Select Candidate</div>
+        <div class="q-text">Who deserves the 2026 Ballon d'Or?</div>
       </div>
 
       <!-- Voted confirmation -->
@@ -216,15 +298,44 @@
         <span>✓</span><span>VOTE ENCRYPTED &amp; TRANSMITTED TO SERVER</span>
       </div>
 
-      <!-- Vote buttons -->
-      <div class="vote-row">
-        <button class="vote-btn btn-yes" id="btnYes" onclick="castVote('yes')">
-          <span class="btn-icon">✓</span>YES
-        </button>
-        <button class="vote-btn btn-no" id="btnNo" onclick="castVote('no')">
-          <span class="btn-icon">✗</span>NO
-        </button>
+      <!-- Candidates Grid -->
+      <div class="candidates-grid" id="candidatesGrid">
+        <div class="candidate-card" onclick="selectCandidate(0)" id="candidate-0">
+          <div class="avatar-wrap"><div class="avatar">LM</div></div>
+          <div class="cand-name">Lionel Messi</div>
+          <div class="cand-club">Inter Miami</div>
+        </div>
+        <div class="candidate-card" onclick="selectCandidate(1)" id="candidate-1">
+          <div class="avatar-wrap"><div class="avatar">CR</div></div>
+          <div class="cand-name">Cristiano Ronaldo</div>
+          <div class="cand-club">Al Nassr</div>
+        </div>
+        <div class="candidate-card" onclick="selectCandidate(2)" id="candidate-2">
+          <div class="avatar-wrap"><div class="avatar">VJ</div></div>
+          <div class="cand-name">Vinicius Jr</div>
+          <div class="cand-club">Real Madrid</div>
+        </div>
+        <div class="candidate-card" onclick="selectCandidate(3)" id="candidate-3">
+          <div class="avatar-wrap"><div class="avatar">EH</div></div>
+          <div class="cand-name">Erling Haaland</div>
+          <div class="cand-club">Man City</div>
+        </div>
+        <div class="candidate-card" onclick="selectCandidate(4)" id="candidate-4">
+          <div class="avatar-wrap"><div class="avatar">KM</div></div>
+          <div class="cand-name">Kylian Mbappé</div>
+          <div class="cand-club">Real Madrid</div>
+        </div>
+        <div class="candidate-card" onclick="selectCandidate(5)" id="candidate-5">
+          <div class="avatar-wrap"><div class="avatar">JB</div></div>
+          <div class="cand-name">Jude Bellingham</div>
+          <div class="cand-club">Real Madrid</div>
+        </div>
       </div>
+
+      <!-- Submit button -->
+      <button class="vote-submit-btn" id="btnSubmitVote" onclick="submitBallot()" style="margin-bottom: 24px;" disabled>
+        CAST ENCRYPTED BALLOT
+      </button>
 
       <!-- Election progress -->
       <div class="progress-wrap">
@@ -247,8 +358,10 @@
 
       <!-- Result -->
       <div class="result-box" id="resultBox">
-        <div class="result-label">FINAL YES VOTES</div>
-        <div class="result-value" id="resultValue">—</div>
+        <div class="result-label">FINAL ELECTION RESULTS</div>
+        <div class="results-list" id="resultsList">
+          <!-- Populated dynamically -->
+        </div>
       </div>
 
       <!-- Log -->
@@ -257,7 +370,7 @@
   </div>
 
   <div class="footer">
-    <div>Privacy-Preserving E-Voting · Graduation Project</div>
+    <div>Ballon d'Or Voting Edition · Graduation Project</div>
     <div>Multi-Key FHE · OpenFHE · C++17 · Node.js</div>
   </div>
 </div>
